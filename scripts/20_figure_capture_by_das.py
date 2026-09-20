@@ -34,7 +34,7 @@ def make_figure(df: pd.DataFrame, cond: str, out: str) -> None:
     df = df.drop_duplicates("hospitalid").sort_values("DAS").reset_index(drop=True)
     x = np.arange(len(df))
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9})
-    fig, ax = plt.subplots(figsize=(9, 4.2), dpi=200)
+    fig, ax = plt.subplots(figsize=(9, 4.2), dpi=300)
     fig.patch.set_facecolor("#fcfcfb"); ax.set_facecolor("#fcfcfb")
 
     for col, label, color, mk in SERIES:
