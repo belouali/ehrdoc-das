@@ -1,19 +1,74 @@
-# ehrdoc_variation
+# Documentation Angular Separation (DAS)
 
-Reproducible pipeline for the paper:
-**"Site-Level EHR Documentation Variation Impacts Model Inference and Generalizability in Multi-Center Research"**
+Code for **"Site-Level EHR Documentation Variation Impacts Model Inference and Generalizability in Multi-Center Research"**
+(Belouali, Kharrazi, Sun, Lehmann), an analysis of 123 to 161 hospitals in the eICU Collaborative Research Database.
 
-## Overview
+## What DAS measures
 
-Each hospital's documentation of a chronic condition is summarised as a
-7-lobe Venn vector over three eICU sources (Diagnosis, Past History,
-Medication). The angle between two hospitals' vectors is the documentation
-angular separation (DAS). The pipeline computes DAS for four conditions,
-tests whether the structure is stable across conditions and unexplained by
-hospital descriptors, and asks whether DAS carries information for ICU
-mortality models and for model transport between hospitals.
+Hospitals differ in *where* the EHR records evidence of a condition: in the diagnosis table, the past-history record,
+the medication orders, or some combination. For one condition at one hospital, the ICU stays with any evidence are
+distributed over the seven lobes of a three-source Venn diagram (three single-source lobes, three pairwise overlaps,
+the triple overlap). Normalizing the lobe counts gives a seven-element **documentation vector** $\mathbf{d}$.
+The documentation angular separation between hospitals $A$ and $B$ is the angle between their vectors:
 
-## Reproducing the paper
+$$
+\mathrm{DAS}(A,B) \;=\; \arccos\!\left(\frac{\mathbf{d}_A \cdot \mathbf{d}_B}{\lVert \mathbf{d}_A \rVert\,\lVert \mathbf{d}_B \rVert}\right)
+$$
+
+DAS ranges from 0° (evidence distributed identically across sources) to 90° (no shared lobe); because all elements
+are non-negative, no larger angle is possible. It needs only seven aggregate counts per condition per site, so it can be
+computed and exchanged before any patient-level data are pooled. The measure extends the angular-separation concept
+introduced by Lehmann and Sun within a single health system to a multi-center setting, three record types and
+downstream analytic consequences.
+
+![Figure 1. Venn diagrams and normalized documentation vectors for diabetes at three eICU hospitals](docs/figure1_das_venn_vectors.png)
+
+*Figure 1. Diabetes documentation at the reference hospital (73), its documentation-nearest hospital (71, DAS 2.27°,
+different size and teaching status) and a documentation-distant hospital with the same size, teaching status and region
+(188, DAS 86.07°). M = medication, H = past history, D = diagnosis.*
+
+## Key results
+
+- **Single-source phenotype rules are not portable.** The share of diabetes stays that a diagnosis-table-only rule
+  captures ranges from 0.1% to 98% across hospitals, and capture tracks DAS (Spearman ρ 0.55 for diagnosis only,
+  −0.76 for medication only).
+- **The DAS structure is concordant across conditions.** Pairwise DAS for diabetes, hypertension, heart failure and
+  atrial fibrillation correlate at ρ 0.69 to 0.79 (Mantel p = 0.001), and at 0.40 to 0.66 among hospitals that record
+  all three sources. Concordance depends on the medication rule: with mutually exclusive, condition-specific medication
+  classes it stays at 0.61 to 0.72 for diabetes, heart failure and atrial fibrillation but falls to 0.35 to 0.40 for
+  pairs involving hypertension.
+- **DAS finds the extreme case without being told.** 16 to 28 hospitals per condition contribute no medication
+  records; they sit near 90° from every other hospital and dominate the far end of every DAS ranking. Every result is
+  reported with and without them.
+- **Hospital descriptors explain little of it.** Region explains 11% to 19% of the squared-distance variation
+  (PERMANOVA), mostly because the no-medication hospitals cluster regionally; among three-source hospitals region, bed
+  size and teaching status explain 3% to 8% and are significant only for hypertension. Dispersion is homogeneous by
+  region once the no-medication hospitals are excluded (PERMDISP).
+- **DAS carries information for ICU-mortality models.** In logistic random-intercept models DAS explains 6% to 9% of
+  between-hospital variance, beyond region, size and teaching status; most of that is the contrast between hospitals
+  that do and do not record medications. The hypertension estimate is reference-dependent (8.1% with the hospital-73
+  scalar, 0.9% with the reference-free centroid angle).
+- **Site adjustment flips a coefficient.** The ICU-transfer effect is protective in pooled models (OR 0.88) and harmful
+  with hospital fixed or random effects (OR 1.15 to 1.18): hospital transfer rates range from 0% to 46% and track
+  hospital mortality.
+- **DAS-guided training-site selection helps modestly.** In leave-one-hospital-out experiments, models trained on the
+  k documentation-nearest hospitals beat models trained on the same number of random hospitals on AUC (differences
+  +0.0005 to +0.0025 at k = 10) and Brier score in all four conditions, and beat the k farthest hospitals by more.
+  Pooling every other hospital remains best, but the nearest-k models approach it with a tenth of the data. The
+  hypertension AUC gain is explained by training-set size; the others are not.
+
+![Figure 3. Held-out AUC and Brier score by training-set choice](docs/figure3_transportability.png)
+
+*Figure 3. Held-out AUC (top) and Brier score (bottom, lower is better) of ICU-mortality models trained on the k
+documentation-nearest, k random (mean of 20 draws) and k farthest hospitals, with the model pooled over all other
+hospitals as a dashed reference.*
+
+## Data
+
+eICU-CRD v2.0 is available to credentialed users at https://physionet.org/content/eicu-crd/ and is not distributed
+with this code. Place the CSV extracts under `../data/raw/` and point `configs/paths.yaml` at them.
+
+## Reproducing the analysis
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
