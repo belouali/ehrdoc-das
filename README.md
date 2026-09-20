@@ -154,3 +154,7 @@ entry to `configs/phenotypes.yaml` and re-run.
 zero-source hospitals) and the random-intercept regressions with `configs/phenotypes_specific_meds.yaml`
 (mutually exclusive medication classes for hypertension, CHF and AF; diabetes unchanged) into
 `data/processed_specific_meds/` and `artifacts/sensitivity_specific_meds/` (paths in `configs/paths_specific_meds.yaml`).
+
+## License
+
+MIT. See `LICENSE`. The eICU data are governed by the PhysioNet credentialed data use agreement and are not covered by this license.
