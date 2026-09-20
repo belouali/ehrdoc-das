@@ -59,7 +59,7 @@ def make_figure(df: pd.DataFrame, cond: str, out: str) -> None:
     ax.set_yticks([0, .25, .5, .75, 1]); ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
     ax.set_xticks([])
     ax.set_xlabel(f"Hospitals (n = {len(df)}), ordered by DAS", color="#52514e")
-    ax.set_ylabel(f"Share of {cond_label} stays captured", color="#52514e")
+    ax.set_ylabel(f"Share of {NICE.get(cond, cond)} stays captured", color="#52514e")
     ax.grid(axis="y", color="#e6e5e0", lw=0.6); ax.set_axisbelow(True)
     for s in ["top", "right"]:
         ax.spines[s].set_visible(False)
