@@ -12,7 +12,7 @@ the triple overlap). Normalizing the lobe counts gives a seven-element **documen
 The documentation angular separation between hospitals $A$ and $B$ is the angle between their vectors:
 
 $$
-\mathrm{DAS}(A,B) = \arccos \left( \frac{\mathbf{d}_A \cdot \mathbf{d}_B}{\| \mathbf{d}_A \| \| \mathbf{d}_B \|} \right)
+\mathrm{DAS}(A,B) = \arccos \left( \frac{\mathbf{d}_A \cdot \mathbf{d}_B}{\lVert \mathbf{d}_A \rVert \; \lVert \mathbf{d}_B \rVert} \right)
 $$
 
 DAS ranges from 0° (evidence distributed identically across sources) to 90° (no shared lobe); because all elements
