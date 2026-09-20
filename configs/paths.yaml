@@ -1,0 +1,11 @@
+# Paths relative to the repo root. Data folder is a sibling directory.
+eicu:
+  patient: ../data/raw/patient.csv.gz
+  diagnosis: ../data/raw/diagnosis.csv.gz
+  pastHistory: ../data/raw/pastHistory.csv.gz
+  medication: ../data/raw/medication.csv.gz
+  hospital: ../data/raw/hospital.csv.gz
+  apachePatientResult: ../data/raw/apachePatientResult.csv.gz
+outputs:
+  processed: ../data/processed
+  artifacts: ../artifacts

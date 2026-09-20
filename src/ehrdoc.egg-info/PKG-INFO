@@ -1,0 +1,94 @@
+Metadata-Version: 2.4
+Name: ehrdoc
+Version: 0.2.0
+Summary: Site-level EHR documentation variation via Venn vectors and angular separation (eICU).
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pandas<3,>=2.0
+Requires-Dist: numpy<2.3,>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: scikit-learn>=1.3
+Requires-Dist: statsmodels>=0.14
+Requires-Dist: pyarrow>=14
+Requires-Dist: matplotlib>=3.7
+Requires-Dist: matplotlib-venn>=0.11
+Requires-Dist: tableone>=0.9.1
+Requires-Dist: pyyaml>=6.0
+Provides-Extra: umap
+Requires-Dist: umap-learn>=0.5; extra == "umap"
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+
+# ehrdoc_variation
+
+Reproducible pipeline for the paper:
+**"Site-Level EHR Documentation Variation Impacts Computable Phenotyping and Inference in Multi-Center Research"**
+
+## Overview
+
+This repo computes angular separation between hospitals based on how they document
+diagnoses across three EHR data sources (Diagnosis, Past History, Medication).
+It produces cross-condition concordance analyses and publication-ready figures.
+
+## Pipeline
+
+```
+01_build_flags.py      → Patient-level evidence flags (Dx/Hx/Med) per condition
+02_build_vectors.py    → Hospital-level 7-lobe Venn vectors (counts + proportions)
+03_compute_distances.py → Pairwise angular separation matrices
+04_concordance_heatmap.py → Cross-condition Spearman correlations + heatmap
+05_make_amia_assets.py → Publication figures (triptych, embedding, model table)
+06_sensitivity_thresholds.py → Concordance stability across min-patient thresholds
+```
+
+## Quickstart
+
+1. Place eICU CSV extracts under `data/raw/` (not committed).
+2. Edit `configs/paths.yaml` to point to your CSVs.
+3. Run:
+
+```bash
+pip install -e .
+
+# Core pipeline
+python scripts/01_build_flags.py --conditions all
+python scripts/02_build_vectors.py --conditions all
+python scripts/03_compute_distances.py --conditions all
+python scripts/04_concordance_heatmap.py
+
+# Publication figures
+python scripts/05_make_amia_assets.py \
+  --concordance-csv artifacts/concordance/concordance_rho.csv \
+  --embedding-method umap
+
+# Sensitivity analysis (multiple thresholds)
+python scripts/06_sensitivity_thresholds.py
+```
+
+## Configuration
+
+- `configs/paths.yaml` — Local paths to eICU CSV files
+- `configs/phenotypes.yaml` — Condition definitions (diagnosis/past_history/medication rules)
+- `configs/cohorts.yaml` — Min-patient thresholds per condition + sensitivity thresholds
+
+## Conditions
+
+Currently defined: **diabetes**, **hypertension**, **CHF**, **atrial fibrillation**.
+
+To add a new condition, add an entry to `configs/phenotypes.yaml` with `diagnosis`,
+`past_history`, and `medication` rules, then re-run the pipeline.
+
+## Key Outputs
+
+- `artifacts/concordance/concordance_rho.csv` — Cross-condition Spearman correlation matrix
+- `artifacts/concordance/concordance_pvalues.csv` — Associated p-values
+- `artifacts/concordance/concordance_n_hospitals.csv` — Overlapping hospital counts
+- `artifacts/amia/Figure1_venn_triptych.png` — Venn diagram triptych
+- `artifacts/amia/Figure1b_hospital_embedding_*.png` — Hospital embedding (MDS/UMAP/t-SNE)
+- `artifacts/amia/Figure2_condition_concordance_heatmap.png` — Concordance heatmap
+- `artifacts/sensitivity/threshold_concordance.csv` — Concordance at multiple thresholds
+- `artifacts/sensitivity/threshold_concordance.png` — Concordance stability plot
+
+## Dependencies
+
+See `pyproject.toml`. Optional: `umap-learn` for UMAP embeddings.

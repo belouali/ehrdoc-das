@@ -1,0 +1,363 @@
+# Condition definitions used to build patient-level evidence flags.
+# Each condition has 3 evidence sources: diagnosis, past_history, medication.
+#
+# Medication lists are matched by substring against eICU `drugName` field.
+# eICU uses free-text drug names (not RxNorm), so we match on generic names
+# and common brand names. Lists organized by drug class.
+#
+# Sources:
+#   Diabetes: ADA Standards of Care 2024; SUPREME-DM drug classes
+#   Hypertension: JNC 8 / AHA 2017 guidelines drug classes
+#   CHF: AHA/ACC/HFSA 2022 Guideline for Management of Heart Failure
+#   AF: AHA/ACC/HRS 2023 Guideline for AF Management
+
+diabetes:
+  # ICD-10: E08-E13 (diabetes mellitus); primarily E11.* (type 2)
+  # Note: eICU diagnosis table uses text strings, not ICD codes
+  diagnosis:
+    include: ["diabetes", "diabetic", "T2DM", "type 2 diabetes", "DM type 2",
+              "DM type II", "NIDDM"]
+    exclude: ["type 1", "T1DM", "IDDM", "gestational"]
+  past_history:
+    include: ["diabetes", "diabetic", "T2DM", "type 2 diabetes",
+              "DM type 2", "DM type II", "NIDDM"]
+    exclude: ["type 1", "T1DM", "IDDM", "gestational"]
+  medication:
+    # Drug classes per ADA Standards of Care and SUPREME-DM
+    include:
+      # Biguanides
+      - metformin
+      - glucophage
+      - riomet
+      - glumetza
+      # Sulfonylureas
+      - glipizide
+      - glucotrol
+      - glyburide
+      - glynase
+      - diabeta
+      - micronase
+      - glimepiride
+      - amaryl
+      - sulfonylurea
+      # Meglitinides
+      - repaglinide
+      - prandin
+      - nateglinide
+      - starlix
+      # Thiazolidinediones (TZDs)
+      - pioglitazone
+      - actos
+      - rosiglitazone
+      - avandia
+      # DPP-4 inhibitors
+      - sitagliptin
+      - januvia
+      - saxagliptin
+      - onglyza
+      - linagliptin
+      - tradjenta
+      - alogliptin
+      - nesina
+      # GLP-1 receptor agonists
+      - exenatide
+      - byetta
+      - bydureon
+      - liraglutide
+      - victoza
+      - dulaglutide
+      - trulicity
+      - semaglutide
+      - ozempic
+      - rybelsus
+      - lixisenatide
+      - adlyxin
+      # SGLT2 inhibitors
+      - canagliflozin
+      - invokana
+      - dapagliflozin
+      - farxiga
+      - empagliflozin
+      - jardiance
+      - ertugliflozin
+      - steglatro
+      # Alpha-glucosidase inhibitors
+      - acarbose
+      - precose
+      - miglitol
+      - glyset
+      # Bile acid sequestrant (for diabetes)
+      - colesevelam
+      - welchol
+      # Dopamine agonist
+      - bromocriptine
+      - cycloset
+      # Insulin (all formulations)
+      - insulin
+      - lantus
+      - levemir
+      - tresiba
+      - toujeo
+      - basaglar
+      - humalog
+      - novolog
+      - apidra
+      - humulin
+      - novolin
+      - admelog
+      - fiasp
+      # Combination products (matched by component names above)
+
+hypertension:
+  # ICD-10: I10-I16 (hypertensive diseases); primarily I10 (essential HTN)
+  diagnosis:
+    include: ["hypertension", "high blood pressure", "htn", "hypertensive"]
+    exclude: ["pulmonary hypertension", "intracranial hypertension",
+              "portal hypertension", "ocular hypertension"]
+  past_history:
+    include: ["hypertension", "high blood pressure", "htn", "hypertensive"]
+    exclude: ["pulmonary hypertension", "intracranial hypertension"]
+  medication:
+    # Drug classes per JNC 8 / AHA 2017 guidelines
+    include:
+      # ACE inhibitors
+      - lisinopril
+      - prinivil
+      - zestril
+      - enalapril
+      - vasotec
+      - ramipril
+      - altace
+      - benazepril
+      - lotensin
+      - captopril
+      - capoten
+      - fosinopril
+      - monopril
+      - quinapril
+      - accupril
+      - perindopril
+      - aceon
+      - trandolapril
+      - mavik
+      - moexipril
+      # ARBs
+      - losartan
+      - cozaar
+      - valsartan
+      - diovan
+      - irbesartan
+      - avapro
+      - candesartan
+      - atacand
+      - olmesartan
+      - benicar
+      - telmisartan
+      - micardis
+      - azilsartan
+      - edarbi
+      # Calcium channel blockers
+      - amlodipine
+      - norvasc
+      - nifedipine
+      - procardia
+      - adalat
+      - diltiazem
+      - cardizem
+      - verapamil
+      - calan
+      - isoptin
+      - felodipine
+      - plendil
+      - nicardipine
+      - cardene
+      - nisoldipine
+      - sular
+      - clevidipine
+      - cleviprex
+      # Beta-blockers
+      - metoprolol
+      - lopressor
+      - toprol
+      - atenolol
+      - tenormin
+      - propranolol
+      - inderal
+      - carvedilol
+      - coreg
+      - bisoprolol
+      - zebeta
+      - labetalol
+      - trandate
+      - nebivolol
+      - bystolic
+      - nadolol
+      - corgard
+      # Thiazide / thiazide-like diuretics
+      - hydrochlorothiazide
+      - hctz
+      - microzide
+      - chlorthalidone
+      - thalitone
+      - indapamide
+      - lozol
+      - metolazone
+      - zaroxolyn
+      # Loop diuretics
+      - furosemide
+      - lasix
+      - bumetanide
+      - bumex
+      - torsemide
+      - demadex
+      # Potassium-sparing diuretics
+      - spironolactone
+      - aldactone
+      - eplerenone
+      - inspra
+      - amiloride
+      - triamterene
+      - dyrenium
+      # Alpha-blockers
+      - doxazosin
+      - cardura
+      - prazosin
+      - minipress
+      - terazosin
+      - hytrin
+      # Central alpha-2 agonists
+      - clonidine
+      - catapres
+      - methyldopa
+      - aldomet
+      - guanfacine
+      - tenex
+      # Direct vasodilators
+      - hydralazine
+      - apresoline
+      - minoxidil
+      # Direct renin inhibitors
+      - aliskiren
+      - tekturna
+
+chf:
+  # ICD-10: I50.* (heart failure); I11.0, I13.0, I13.2 (hypertensive HF)
+  diagnosis:
+    include: ["heart failure", "congestive heart failure", "chf",
+              "cardiomyopathy", "reduced ejection fraction", "HFrEF",
+              "HFpEF", "systolic dysfunction"]
+    exclude: ["right heart failure"]
+  past_history:
+    include: ["heart failure", "congestive heart failure", "chf",
+              "cardiomyopathy"]
+  medication:
+    # Drug classes per AHA/ACC/HFSA 2022 Guidelines (GDMT)
+    include:
+      # ACE inhibitors (same agents as HTN)
+      - lisinopril
+      - enalapril
+      - ramipril
+      - captopril
+      - fosinopril
+      - quinapril
+      - perindopril
+      - trandolapril
+      # ARBs
+      - losartan
+      - valsartan
+      - candesartan
+      - irbesartan
+      # ARNI
+      - sacubitril
+      - entresto
+      # Beta-blockers (guideline-directed for HF: carvedilol, metoprolol succinate, bisoprolol)
+      - carvedilol
+      - coreg
+      - metoprolol succinate
+      - toprol
+      - bisoprolol
+      - zebeta
+      # Mineralocorticoid receptor antagonists
+      - spironolactone
+      - aldactone
+      - eplerenone
+      - inspra
+      # Loop diuretics
+      - furosemide
+      - lasix
+      - bumetanide
+      - bumex
+      - torsemide
+      - demadex
+      # SGLT2 inhibitors (guideline-directed for HF since 2022)
+      - dapagliflozin
+      - farxiga
+      - empagliflozin
+      - jardiance
+      # Cardiac glycosides
+      - digoxin
+      - lanoxin
+      # Vasodilators
+      - hydralazine
+      - isosorbide dinitrate
+      - bidil
+      # Ivabradine
+      - ivabradine
+      - corlanor
+
+af:
+  # ICD-10: I48.* (atrial fibrillation and flutter)
+  diagnosis:
+    include: ["atrial fibrillation", "atrial flutter", "afib", "a-fib",
+              "a fib", "AF/A Flutter"]
+  past_history:
+    include: ["atrial fibrillation", "atrial flutter", "afib", "a-fib",
+              "a fib"]
+  medication:
+    # Drug classes per AHA/ACC/HRS 2023 AF Guidelines
+    include:
+      # Rate control - Beta-blockers
+      - metoprolol
+      - lopressor
+      - toprol
+      - atenolol
+      - propranolol
+      - carvedilol
+      - bisoprolol
+      # Rate control - CCBs
+      - diltiazem
+      - cardizem
+      - verapamil
+      - calan
+      # Rate control - Cardiac glycosides
+      - digoxin
+      - lanoxin
+      # Rhythm control - Antiarrhythmics
+      - amiodarone
+      - cordarone
+      - pacerone
+      - flecainide
+      - tambocor
+      - propafenone
+      - rhythmol
+      - sotalol
+      - betapace
+      - dofetilide
+      - tikosyn
+      - dronedarone
+      - multaq
+      # Anticoagulants (stroke prevention in AF)
+      - warfarin
+      - coumadin
+      - jantoven
+      - apixaban
+      - eliquis
+      - rivaroxaban
+      - xarelto
+      - dabigatran
+      - pradaxa
+      - edoxaban
+      - savaysa
+      - enoxaparin
+      - lovenox
+      - heparin

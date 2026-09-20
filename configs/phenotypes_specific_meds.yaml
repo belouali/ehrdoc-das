@@ -1,0 +1,260 @@
+# SENSITIVITY: condition-specific, mutually exclusive medication classes.
+# Diabetes unchanged. For hypertension, CHF and AF, every drug class that appears
+# in more than one condition's guideline list (ACE inhibitors, ARBs, beta-blockers,
+# digoxin, SGLT2 inhibitors, heparins) is dropped, and each remaining shared class
+# is assigned to the condition for which it is most specific:
+#   hypertension: thiazide-type diuretics, dihydropyridine CCBs, alpha-blockers,
+#                 central alpha-2 agonists, direct vasodilators, aliskiren,
+#                 non-MRA potassium-sparing diuretics
+#   chf:          loop diuretics, MRAs, ARNI, isosorbide dinitrate, ivabradine
+#   af:           antiarrhythmics, oral anticoagulants (warfarin, DOACs), non-DHP CCBs
+diabetes:
+  diagnosis:
+    include:
+    - diabetes
+    - diabetic
+    - T2DM
+    - type 2 diabetes
+    - DM type 2
+    - DM type II
+    - NIDDM
+    exclude:
+    - type 1
+    - T1DM
+    - IDDM
+    - gestational
+  past_history:
+    include:
+    - diabetes
+    - diabetic
+    - T2DM
+    - type 2 diabetes
+    - DM type 2
+    - DM type II
+    - NIDDM
+    exclude:
+    - type 1
+    - T1DM
+    - IDDM
+    - gestational
+  medication:
+    include:
+    - metformin
+    - glucophage
+    - riomet
+    - glumetza
+    - glipizide
+    - glucotrol
+    - glyburide
+    - glynase
+    - diabeta
+    - micronase
+    - glimepiride
+    - amaryl
+    - sulfonylurea
+    - repaglinide
+    - prandin
+    - nateglinide
+    - starlix
+    - pioglitazone
+    - actos
+    - rosiglitazone
+    - avandia
+    - sitagliptin
+    - januvia
+    - saxagliptin
+    - onglyza
+    - linagliptin
+    - tradjenta
+    - alogliptin
+    - nesina
+    - exenatide
+    - byetta
+    - bydureon
+    - liraglutide
+    - victoza
+    - dulaglutide
+    - trulicity
+    - semaglutide
+    - ozempic
+    - rybelsus
+    - lixisenatide
+    - adlyxin
+    - canagliflozin
+    - invokana
+    - dapagliflozin
+    - farxiga
+    - empagliflozin
+    - jardiance
+    - ertugliflozin
+    - steglatro
+    - acarbose
+    - precose
+    - miglitol
+    - glyset
+    - colesevelam
+    - welchol
+    - bromocriptine
+    - cycloset
+    - insulin
+    - lantus
+    - levemir
+    - tresiba
+    - toujeo
+    - basaglar
+    - humalog
+    - novolog
+    - apidra
+    - humulin
+    - novolin
+    - admelog
+    - fiasp
+hypertension:
+  diagnosis:
+    include:
+    - hypertension
+    - high blood pressure
+    - htn
+    - hypertensive
+    exclude:
+    - pulmonary hypertension
+    - intracranial hypertension
+    - portal hypertension
+    - ocular hypertension
+  past_history:
+    include:
+    - hypertension
+    - high blood pressure
+    - htn
+    - hypertensive
+    exclude:
+    - pulmonary hypertension
+    - intracranial hypertension
+  medication:
+    include:
+    - hydrochlorothiazide
+    - hctz
+    - microzide
+    - chlorthalidone
+    - thalitone
+    - indapamide
+    - lozol
+    - metolazone
+    - zaroxolyn
+    - amlodipine
+    - norvasc
+    - nifedipine
+    - procardia
+    - adalat
+    - felodipine
+    - plendil
+    - nicardipine
+    - cardene
+    - nisoldipine
+    - sular
+    - clevidipine
+    - cleviprex
+    - doxazosin
+    - cardura
+    - prazosin
+    - minipress
+    - terazosin
+    - hytrin
+    - clonidine
+    - catapres
+    - methyldopa
+    - aldomet
+    - guanfacine
+    - tenex
+    - hydralazine
+    - apresoline
+    - minoxidil
+    - aliskiren
+    - tekturna
+    - amiloride
+    - triamterene
+    - dyrenium
+chf:
+  diagnosis:
+    include:
+    - heart failure
+    - congestive heart failure
+    - chf
+    - cardiomyopathy
+    - reduced ejection fraction
+    - HFrEF
+    - HFpEF
+    - systolic dysfunction
+    exclude:
+    - right heart failure
+  past_history:
+    include:
+    - heart failure
+    - congestive heart failure
+    - chf
+    - cardiomyopathy
+  medication:
+    include:
+    - furosemide
+    - lasix
+    - bumetanide
+    - bumex
+    - torsemide
+    - demadex
+    - spironolactone
+    - aldactone
+    - eplerenone
+    - inspra
+    - sacubitril
+    - entresto
+    - isosorbide dinitrate
+    - bidil
+    - ivabradine
+    - corlanor
+af:
+  diagnosis:
+    include:
+    - atrial fibrillation
+    - atrial flutter
+    - afib
+    - a-fib
+    - a fib
+    - AF/A Flutter
+  past_history:
+    include:
+    - atrial fibrillation
+    - atrial flutter
+    - afib
+    - a-fib
+    - a fib
+  medication:
+    include:
+    - amiodarone
+    - cordarone
+    - pacerone
+    - flecainide
+    - tambocor
+    - propafenone
+    - rhythmol
+    - sotalol
+    - betapace
+    - dofetilide
+    - tikosyn
+    - dronedarone
+    - multaq
+    - warfarin
+    - coumadin
+    - jantoven
+    - apixaban
+    - eliquis
+    - rivaroxaban
+    - xarelto
+    - dabigatran
+    - pradaxa
+    - edoxaban
+    - savaysa
+    - diltiazem
+    - cardizem
+    - verapamil
+    - calan
+    - isoptin

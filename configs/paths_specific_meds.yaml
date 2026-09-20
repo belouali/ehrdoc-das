@@ -1,0 +1,12 @@
+# Sensitivity analysis: condition-specific (mutually exclusive) medication classes.
+# Same raw data; separate processed and artifact folders so the primary run is untouched.
+eicu:
+  patient: ../data/raw/patient.csv.gz
+  diagnosis: ../data/raw/diagnosis.csv.gz
+  pastHistory: ../data/raw/pastHistory.csv.gz
+  medication: ../data/raw/medication.csv.gz
+  hospital: ../data/raw/hospital.csv.gz
+  apachePatientResult: ../data/raw/apachePatientResult.csv.gz
+outputs:
+  processed: ../data/processed_specific_meds
+  artifacts: ../artifacts/sensitivity_specific_meds
