@@ -199,7 +199,7 @@ def main():
                 if col not in chars.columns:
                     continue
                 vals = [chars[col].get(h, np.nan) for h in ids]
-                vals = [np.nan if (isinstance(v, float) and np.isnan(v)) or str(v) == "Unknown" else str(v) for v in vals]
+                vals = [np.nan if (isinstance(v, float) and np.isnan(v)) or str(v) in ("Unknown", "nan", "None", "") else str(v) for v in vals]  # missing labels are stored as the string "nan"
                 pv = permanova(D, vals, n_perm=args.n_perm, seed=0)
                 perm_rows.append({"condition": cond, "sample": "all_hospitals" if variant == "all" else "excluding_zero_source",
                                   "characteristic": label, "n_hospitals": pv["n_hospitals"], "n_groups": pv["n_groups"],
