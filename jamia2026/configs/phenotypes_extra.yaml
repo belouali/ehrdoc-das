@@ -1,0 +1,27 @@
+# Two further chronic conditions for an exploratory site-selection screen (2026-11-11, author's request).
+# Same structure and matching as ../configs/phenotypes.yaml (case-insensitive substrings).
+# Medication classes: COPD maintenance and bronchodilator classes per GOLD 2024 (SAMA, LAMA, LABA, ICS-LABA
+# combinations, PDE-4 inhibitor, methylxanthine); hypothyroidism: thyroid hormone replacement (ATA 2014).
+copd:
+  diagnosis:
+    include: ["COPD", "chronic obstructive", "emphysema", "chronic bronchitis"]
+    exclude: []
+  past_history:
+    include: ["COPD", "chronic obstructive", "emphysema"]
+    exclude: []
+  medication:
+    include: [ipratropium, atrovent, combivent, duoneb,                              # SAMA
+              tiotropium, spiriva, umeclidinium, incruse, aclidinium, tudorza,       # LAMA
+              salmeterol, serevent, formoterol, foradil, perforomist, brovana, olodaterol, striverdi,  # LABA
+              advair, symbicort, dulera, breo, vilanterol, anoro, stiolto, trelegy, # combinations
+              roflumilast, daliresp, theophylline, aminophylline]
+hypothyroidism:
+  diagnosis:
+    include: ["hypothyroid"]
+    exclude: []
+  past_history:
+    include: ["hypothyroid"]
+    exclude: []
+  medication:
+    include: [levothyrox, synthroid, levoxyl, unithroid, euthyrox, tirosint, liothyronine, cytomel,
+              armour thyroid, np thyroid, liotrix]

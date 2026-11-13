@@ -1,0 +1,120 @@
+# External DAS validation (MIMIC-IV 2.2 target, eICU 2.0 sources).
+# Text and medication rules come from ../configs/phenotypes.yaml
+# so both datasets use the published definitions. This file adds what eICU
+# never needed: ICD code rules for MIMIC-IV diagnoses (also used on the eICU
+# icd9code column as a sensitivity analysis; not usable for diabetes, because
+# most eICU diabetes diagnoses carry no ICD code).
+
+paths:
+  phenotypes: ../configs/phenotypes.yaml
+  phenotypes_specific: ../configs/phenotypes_specific_meds.yaml
+  eicu: /Volumes/Crucial X9/research_data/eicu/2.0-parquet/eicu_crd
+  mimic: /Volumes/Crucial X9/research_data/mimic-iv/2.2-parquet
+  # Row-level outputs stay on the external drive (MIMIC and eICU data use agreements).
+  rowlevel: /Volumes/Crucial X9/research_data/ehrdoc_external
+  results: results
+
+cohort:
+  min_age: 18
+  landmark_hours: 24   # alive and still in the ICU at 24 h; first qualifying stay per patient
+
+split:
+  reference_fraction: 0.25   # MIMIC-IV documentation-reference subset; the rest is held out
+  salt: ehrdoc-external-2026-11-05
+  # Years with MIMIC-IV-ED coverage (home medications). Primary reference vector uses these.
+  reference_year_groups: ["2011 - 2013", "2014 - 2016", "2017 - 2019"]
+
+# P0 first-day predictors (stage 3). Offsets in hours from ICU admission.
+# Vitals are reduced to hourly medians before summarizing, so the 5-minute eICU
+# monitor feed and hourly MIMIC-IV charting give comparable min/max/median.
+features:
+  vital_window: [0, 24]
+  lab_window: [-6, 24]
+  vitals: [hr, map, rr, temp, spo2, gcs]
+  labs: [creatinine, bun, sodium, potassium, hgb, wbc, platelets]
+  plausible:
+    hr: [1, 300]
+    map: [1, 300]
+    rr: [1, 80]
+    temp: [25, 45]
+    spo2: [1, 100]
+    gcs: [3, 15]
+    creatinine: [0.05, 30]
+    bun: [0.5, 300]
+    sodium: [90, 200]
+    potassium: [0.5, 15]
+    hgb: [1, 30]
+    wbc: [0.01, 500]
+    platelets: [1, 2000]
+  eicu_labs:   # labname in eICU lab
+    creatinine: creatinine
+    bun: BUN
+    sodium: sodium
+    potassium: potassium
+    hgb: Hgb
+    wbc: WBC x 1000
+    platelets: platelets x 1000
+  mimic_labs:  # itemid in hosp.labevents (main chemistry and hematology, no blood gas)
+    creatinine: [50912]
+    bun: [51006]
+    sodium: [50983]
+    potassium: [50971]
+    hgb: [51222]
+    wbc: [51301, 51300]
+    platelets: [51265]
+  mimic_vitals:  # itemid in icu.chartevents
+    hr: [220045]
+    map: [220052, 225312, 220181]
+    rr: [220210, 224690]
+    spo2: [220277]
+    temp_c: [223762]
+    temp_f: [223761]
+    gcs_parts: [220739, 223900, 223901]
+
+# Past medical history from MIMIC-IV-Note discharge summaries (H source, script 08).
+# Primary H: the "Past Medical History:" section of the index admission's summary.
+# Sensitivity: sections from earlier admissions stored before the index ICU admission.
+# Matching is per item (line, or ';'/',' piece). The published past_history
+# include/exclude terms from phenotypes.yaml always apply. Free text also uses
+# abbreviations that the eICU picklist never needed; these are added as
+# case-insensitive regexes (H). Hstrict uses the published terms only.
+notes_history:
+  path: /Volumes/Crucial X9/research_data/mimic-iv-note/2.2/note/discharge.csv.gz
+  section_start: '(?im)^\s*(past medical history|past medical and surgical history|past medical/surgical history|pmh)\s*:'
+  section_end: '(?im)^\s*(social history|family history|physical exam|physical examination|pertinent results|brief hospital course|medications on admission|discharge medications|allergies|history of present illness|chief complaint|past surgical history|psh|review of systems|admission labs|discharge diagnosis|discharge condition)\s*:'
+  max_section_chars: 4000
+  negation: '\b(no|denies|denied|negative for|without|ruled out|r/o|rule out)\b'
+  skip_item: '^\s*[-*•]?\s*(family history|fhx|fh)\b'
+  extra_include:
+    diabetes: ['\bDM\s*(2|II|type\s*(2|II))?\b', '\bDMII\b', '\bT2D\b']
+    hypertension: ['\bHTN\b', '\bhigh blood pressure\b']
+    chf: ['\bHF(rEF|pEF|mrEF)?\b', '\b[sd]CHF\b', '\bsystolic heart failure\b', '\bdiastolic heart failure\b']
+    af: ['\bAF\b', '\bPAF\b', '\bAFL\b', '\bA\.?\s?flutter\b', '\bA\.?\s?fib\b']
+  extra_exclude:
+    diabetes: ['\bDM\s*(1|I|type\s*(1|I))\b', '\btype\s*(1|I)\b', '\bT1D\b', '\bLADA\b', 'pre-?diabet', 'insipidus']
+    hypertension: ['pulmonary (arterial )?hypertension', '\bPAH\b', 'portal hypertension', 'intracranial hypertension', 'ocular hypertension', 'pre-?eclampsia', 'gestational hypertension']
+    chf: ['right heart failure', 'right[- ]sided heart failure']
+    af: []
+
+das:
+  min_records_per_hospital: 100
+  k: [5, 10, 20]
+  n_bootstrap: 1000
+  seed: 20261105
+
+# Codes are matched without dots. Exclusions mirror the text rules in phenotypes.yaml
+# (type 1 and gestational diabetes, right heart failure).
+icd:
+  diabetes:
+    icd10: "^(E08|E09|E11|E13)"
+    icd9: "^(249|250[0-9][02]$|250[0-9]?$)"
+  hypertension:
+    icd10: "^(I10|I11|I12|I13|I15|I16)"
+    icd9: "^(401|402|403|404|405)"
+  chf:
+    icd10: "^(I50|I110|I130|I132|I42|I43|I0981)"
+    icd10_exclude: "^I5081"
+    icd9: "^(428|425|40201|40211|40291|40401|40403|40411|40413|40491|40493|39891)"
+  af:
+    icd10: "^I48"
+    icd9: "^(42731|42732)"

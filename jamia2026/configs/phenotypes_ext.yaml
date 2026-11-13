@@ -1,0 +1,89 @@
+# A_construct_condition_ext part 2, step 0: eICU phenotypes for the added conditions.
+# status: locked. Drafted 2026-11-07; approved by the user 2026-11-07 ("Approve phenotypes"), before any flag was computed.
+# Same format and matching as ../configs/phenotypes.yaml: case-insensitive
+# substring on diagnosisstring (D), pasthistorypath (H), and drugname in admissionDrug (A) and
+# medication (M); exclude terms remove a match. The medication list is used for both A and M.
+# Strings were chosen from the eICU vocabulary (category counts only, no patient rows).
+# A diagnosis may be the reason for this admission (e.g. acute stroke), as for the four
+# published conditions (e.g. CHF exacerbation); this is not separated.
+status: locked
+
+cancer:
+  diagnosis:
+    include: ["oncology|", "malignancy", "cancer", "carcinoma", "lymphoma", "leukemia", "myeloma",
+              "metastatic"]
+    exclude: ["s/p surgery for cancer", "benign", "brain tumor", "pituitary"]
+  past_history:
+    include: ["Hematology/Oncology (R)/Cancer/", "Hematology/Oncology (R)/Cancer Therapy/"]
+    exclude: []
+  medication:  # oral or hormonal cancer therapy, chemotherapy agents; expected sparse in the ICU
+    include: [tamoxifen, anastrozole, letrozole, exemestane, fulvestrant, bicalutamide, flutamide,
+              enzalutamide, abiraterone, leuprolide, goserelin, degarelix, capecitabine, temozolomide,
+              imatinib, dasatinib, nilotinib, ibrutinib, lenalidomide, pomalidomide, thalidomide,
+              hydroxyurea, erlotinib, gefitinib, osimertinib, sorafenib, sunitinib, pazopanib,
+              cisplatin, carboplatin, oxaliplatin, cyclophosphamide, doxorubicin, paclitaxel, docetaxel,
+              gemcitabine, etoposide, fluorouracil, rituximab, bortezomib, cytarabine, azacitidine]
+    exclude: ["methotrexate"]  # mostly rheumatologic at low dose
+
+obesity:
+  # eICU pastHistory has no obesity entry and there is no obesity-specific medication, so D alone
+  # would give one lobe. Chosen by the user 2026-11-07 ("BMI-anchored profile"): a BMI-anchored
+  # two-lobe profile (the B9 completeness approach), labeled as a different construct from DHM.
+  construct: "D-U, BMI anchored"
+  population: "stays with BMI >= 30 from admission height and weight (height 120-220 cm, weight 30-300 kg, as B6)"
+  lobes:
+    D: "obesity recorded in the diagnosis table"
+    U: "BMI >= 30 and no obesity diagnosis"
+  note: "with two lobes the angle is a monotone function of the hospital's obesity coding rate among BMI >= 30; nearest 10 = hospitals with the most similar coding rate"
+  min_per_hospital: "100 stays with BMI >= 30, as the other conditions"
+  diagnosis:
+    include: ["obesity"]
+    exclude: ["s/p surgery for morbid obesity"]
+  past_history: null
+  medication: null
+  mimic: "only for an approved winner: BMI from the OMR table or first-day height and weight, D from ICD-10 E66 / ICD-9 278.0; approved first"
+
+copd:
+  diagnosis:
+    include: ["COPD", "emphysema", "chronic bronchitis", "chronic obstructive"]
+    exclude: ["cholecystitis"]
+  past_history:
+    include: ["Pulmonary/COPD/"]
+    exclude: []
+  medication:  # long-acting bronchodilators and roflumilast; short-acting agents and steroids are not specific
+    include: [tiotropium, spiriva, umeclidinium, aclidinium, salmeterol, formoterol, arformoterol,
+              olodaterol, vilanterol, roflumilast, ipratropium, combivent, duoneb]
+    exclude: []
+
+ckd:
+  diagnosis:
+    include: ["chronic kidney disease", "ESRD", "end stage renal", "chronic renal insufficiency"]
+    exclude: ["acute renal failure"]
+  past_history:
+    include: ["Renal  (R)/Renal Failure/", "Renal  (R)/Renal Insufficiency/"]
+    exclude: ["kidney stones"]
+  medication:  # CKD mineral-bone and anemia agents
+    include: [sevelamer, renvela, renagel, "calcium acetate", phoslo, lanthanum, cinacalcet, sensipar,
+              calcitriol, paricalcitol, zemplar, doxercalciferol, hectorol, epoetin, darbepoetin, aranesp]
+    exclude: []
+
+cirrhosis:
+  diagnosis:
+    include: ["cirrhosis", "hepatic encephalopathy", "esophageal varices", "portal hypertension"]
+    exclude: ["biliary cirrhosis"]  # cholestatic disease kept out, as in Charlson mild/severe split
+  past_history:
+    include: ["Gastrointestinal (R)/Cirrhosis/"]
+    exclude: []
+  medication:
+    include: [lactulose, rifaximin, xifaxan]
+    exclude: []
+
+stroke:
+  diagnosis:
+    include: ["disorders of vasculature|stroke", "cerebral infarct", "intracranial hemorrhage",
+              "subarachnoid hemorrhage"]
+    exclude: ["stroke education", "TIA"]
+  past_history:
+    include: ["Neurologic/Strokes/"]
+    exclude: []
+  medication: null  # no stroke-specific medication; D and H only, 3 lobes, labeled

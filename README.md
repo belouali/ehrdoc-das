@@ -3,6 +3,10 @@
 Code for **"Site-Level EHR Documentation Variation Impacts Model Inference and Generalizability in Multi-Center Research"**
 (Belouali, Kharrazi, Sun, Lehmann), an analysis of 123 to 161 hospitals in the eICU Collaborative Research Database.
 
+**Current version (JAMIA 2026):** the code for the current version of the paper (141 eICU hospitals, documentation
+variation and outcome models, training-site selection with held-out eICU hospitals and MIMIC-IV) is in
+[`jamia2026/`](jamia2026/README.md). The rest of this README describes the earlier analysis.
+
 ## What DAS measures
 
 Hospitals differ in *where* the EHR records evidence of a condition: in the diagnosis table, the past-history record,

@@ -1,0 +1,225 @@
+# Ceiling analysis and development/confirmation split for the construct search.
+# Drafted 2026-11-06. C1 and D1 approved by the user 2026-11-06, before computing.
+# Sources: D diagnosis, H past history, A home medication, M in-stay medication,
+# U undocumented (lab positive, no D/H/M record). DHM = the paper's construct.
+# M1 = the paper's mortality model (APACHE IV score). Case mix = hospital means of
+# the 19 script-07 patient features (age, sex, vital signs, GCS, unit type).
+status: locked  # C1 and D1; the D1 winner is locked separately after approval
+
+C1_ceiling:
+  status: locked  # approved by the user 2026-11-06, before computing
+  question: "How much AUROC can any choice of 10 eICU training hospitals gain over random 10 for a target hospital?"
+  model: "M1 (APACHE IV score design, scripts/m1_model.py), C = 1e6 pooled, C = 1.0 for single-source fits as in script 10"
+  outcome: "hospital death, eICU M1 cohort"
+  targets: "the development half of the 82 eICU targets (>= 300 stays, >= 20 deaths), see D1"
+  pool: "every other eICU hospital with >= 100 M1-eligible stays (141 hospitals in total)"
+  target_split: "each target's stays split 50/50 stratified by death: selection half S, evaluation half E; seed fixed"
+  arms:
+    random: "200 draws of 10 pool hospitals, AUROC on E"
+    oracle_rank_best: "fit M1 on each pool hospital alone, rank by AUROC on S, top 10 pooled, AUROC on E"
+    oracle_rank_worst: "bottom 10 of the same ranking"
+    oracle_set_best: "best of the 200 random draws by AUROC on S, scored on E"
+    oracle_set_worst: "worst of the 200 random draws by AUROC on S, scored on E"
+    das_nearest: "DHM nearest-10 per condition (the paper's DHM), scored on E"
+    casemix_nearest: "script-07 case-mix nearest-10, scored on E"
+  size_control: "as script 12: every set subsampled to min(oracle set, nearest set, 5th percentile of random sizes); oracle and nearest 3 repeats averaged"
+  k: {primary: 10, secondary: [5, 20]}
+  readouts:
+    ceiling_gain: "mean over targets of AUROC_E(oracle_rank_best) - mean AUROC_E(random), 2,000 target-bootstrap CI"
+    lottery_range: "per target SD and 5th-95th percentile range of random-10 AUROC on E, median over targets"
+    capture: "DAS gain / ceiling gain and case-mix gain / ceiling gain, same targets"
+  decision_rule:
+    small: "ceiling_gain < 0.010: report that hospital selection has little room in eICU for this model; move the search to tasks (Part A) and similarity weighting"
+    room: "ceiling_gain >= 0.030: describe which hospital traits separate oracle-best sets from random (DAS, case mix, region, size, teaching), on the development half only"
+    between: "0.010 to 0.030: run both"
+  mimic_secondary:
+    status: locked  # approved by the user 2026-11-06, before computing
+    design: "MIMIC-IV as one target: select on the 25% development subset (mimic_split reference = False is the 75% evaluation subset), score on the 75% evaluation subset"
+    caveat: "MIMIC-IV outcomes were already read for stage 4, so this is labeled not blind"
+  seed: 20261107
+
+D1_dev_confirm:
+  status: locked  # approved by the user 2026-11-06, before computing
+  split: "82 eICU targets into a development half (41) and a confirmation half (41), stratified by region and size tertile, seed fixed, written once to results/target_split.csv"
+  rule: "the search reads outcomes of development targets only; confirmation targets serve only as training hospitals until the confirmation run"
+  known_exposure: "scripts 10 and 12 already read all 82 targets for DHM, DHAM, DAM and the learned distance; those four are reported as already seen and cannot be the confirmed winner"
+  search_space:
+    constructs: [DHM, DHAM, DAM, DHM-U diabetes, "multi-condition joined vector (the 4 conditions, each unit length)", "B9 anchored profile"]
+    rule: ["nearest-k selection", "similarity weighting, weight = exp(-angle / tau), tau on a grid of 5 values", "rank average of DAS and case mix"]
+    k: [5, 10, 20]
+    task: "in-hospital death now; Part A tasks enter only after their settings are approved"
+  budget: "at most 40 candidates, every one logged in results/search_ledger.csv with its result, including failures"
+  winner_metric: "mean size-controlled AUROC gain over random-10 on development targets"
+  lock: "the user approves one winner, with every setting, before the confirmation run"
+  confirmation:
+    test: "winner vs random-10 on the 41 confirmation targets, once"
+    success: "mean gain > 0 with the lower 95% target-bootstrap bound > 0"
+    power_note: "script 12 gave CI half-widths near 0.003 on 78 targets, so about 0.0045 on 41; gains below about 0.005 will not be confirmed"
+    external: "then MIMIC-IV 75% evaluation subset, labeled not blind"
+
+E1_exclusion:
+  status: locked  # approved by the user 2026-11-06, before computing
+  question: "Does training on every pool hospital except the farthest by DAS beat excluding the same number at random?"
+  why: "C1 found the downside of a bad choice (about -0.06 at k = 10) far larger than the upside (about +0.01)"
+  model: "M1, C = 1e6, as C1"
+  targets: "the 41 development targets only (D1)"
+  pool: "every other eICU hospital with >= 100 M1 stays, as C1"
+  target_split: "each target's stays split 50/50 by death into S and E with seed 20261108; rules use no outcomes, so only E is scored, and S serves only the oracle"
+  exclude_share: [0.10, 0.25, 0.50]   # share of pool hospitals dropped
+  candidates:  # 21, counted against the D1 budget of 40
+    das_condition: "drop the farthest by the DHM angle (the paper's construct), each of the 4 conditions (12)"
+    das_joined: "drop the farthest by the mean DHM angle over the 4 conditions (3)"
+    casemix: "drop the farthest by the script-07 case-mix distance (3)"
+    das_and_casemix: "drop the farthest by the average of the DAS-joined rank and the case-mix rank (3)"
+  comparators:
+    random_exclusion: "50 draws dropping the same number of hospitals at random (primary comparator)"
+    pooled_all: "every pool hospital (secondary)"
+    oracle_exclusion: "drop the worst by single-source AUROC on S, as in C1 (the ceiling for exclusion; not a candidate)"
+  size_control: "the rule set and each random draw subsampled to the smaller of the rule set and the 5th percentile of random sizes; rule sets 3 repeats averaged"
+  readouts:
+    primary: "mean over targets of AUROC_E(rule) - mean AUROC_E(random exclusion), 2,000 target-bootstrap CI"
+    secondary: ["rule minus pooled_all", "share of the oracle exclusion gain captured", "share of targets with a gain"]
+  winner: "the candidate with the largest primary gain enters the D1 winner choice; nothing is confirmed here"
+  seed: 20261108
+
+D1_winners:
+  status: locked  # winners chosen by the user 2026-11-06 ("both"); block approved by the user 2026-11-06, before computing
+  note: "D1 named one winner; the user chose two, so the two confirmation tests are Holm-corrected"
+  W1:
+    task: "A3, ICU stay > 7 days (features as scripts/21_task_gate.py)"
+    rule: "nearest 10 by the CHF DHM angle (the paper's construct)"
+    development: "+0.016 (0.009 to 0.023), 39 targets"
+  W2:
+    task: "A4, ICU readmission in the same hospitalization, among stays discharged alive from the ICU"
+    rule: "nearest 10 by the diabetes DHM angle"
+    development: "+0.025 (0.006 to 0.045), 32 targets"
+  confirmation:
+    targets: "the 41 confirmation targets in results/target_split.csv, read here for the first time; A4 needs >= 20 events per target; a target without a DHM vector for the condition is skipped"
+    pool: "every other eICU hospital with >= 100 stays in the task cohort (as script 22)"
+    evaluation: "all of the target's stays (the rule reads no outcomes, so no selection half is needed)"
+    comparator: "200 random draws of 10 pool hospitals"
+    size_control: "as script 22: nearest subsampled to min(nearest, 5th percentile of random sizes), 3 repeats averaged"
+    model: "logistic regression, p0 pipeline, C = 1e6"
+    statistic: "mean over targets of AUROC(nearest) - mean AUROC(random), 2,000 target-bootstrap CI; one-sided p = share of bootstrap means <= 0"
+    success: "Holm-adjusted one-sided p < 0.05 for each winner (equivalently the lower bound above 0 after Holm)"
+    descriptive: "case-mix nearest-10 on the same targets; not a test"
+    reported_regardless: "both results, pass or fail"
+  external: "MIMIC-IV for the confirmed winners only, settings drafted after this run, labeled not blind"
+  seed: 20261111
+
+W1_mimic:
+  status: locked  # approved by the user 2026-11-06, before computing
+  question: "Does the confirmed W1 rule (nearest 10 eICU hospitals by the CHF DHM angle) beat random 10 for ICU stay > 7 days in MIMIC-IV?"
+  blinding: "ICU stay > 7 days has not been modelled in MIMIC-IV in this project (ICU out-times were used only for windows and cohort rules); MIMIC-IV mortality was read earlier, and MIMIC-IV played no part in choosing W1"
+  training:
+    data: "eICU, task cohort and features as scripts/21_task_gate.py: M1 inputs + Charlson + 12 flags (diabetes, hypertension, CHF, AF x D, H, M)"
+    pool: "eICU hospitals with >= 100 stays in the task cohort and a CHF DHM angle to MIMIC-IV in results/das_to_mimic.csv"
+    nearest: "10 smallest CHF DHM angles to MIMIC-IV, reference ref_2011_2019 (as stage 4)"
+    model: "logistic regression, p0 pipeline, C = 1e6"
+  evaluation:
+    cohort: "MIMIC-IV 75% evaluation subset (mimic_split reference = False), M1 cohort (first qualifying ICU stay, alive and in the ICU at 24 h)"
+    outcome: "icustays los > 7 days"
+    features: "mimic_m1_features + Charlson (mimic_m2_features) + D and M from mimic_flags + H from mimic_history_flags (index discharge summary)"
+  comparator: "500 random draws of 10 pool hospitals (as stage 4)"
+  size_control: "as stage 4: nearest subsampled to min(nearest, 5th percentile of random sizes), 10 repeats averaged; each random draw subsampled once"
+  statistic: "AUROC(nearest) - mean AUROC(random); 2,000 patient-level bootstrap CI with models fixed, random mean from the first 100 draws; percentile of nearest among the 500 draws"
+  success: "difference > 0 with the lower 95% bound above 0; reported pass or fail"
+  descriptive: ["case-mix nearest-10 (results/casemix_distance.csv)", "reference ref_all_years", "calibration-in-the-large and slope"]
+  seed: 20261112
+
+W1_pooled:
+  status: locked  # approved by the user 2026-11-06, before computing
+  question: "Does the W1 rule (nearest 10 eICU hospitals by the CHF DHM angle) beat training on every pool hospital for ICU stay > 7 days in MIMIC-IV?"
+  blinding: "W1_mimic read AUROC for nearest-10, case-mix nearest-10 and random 10 only. No model trained on more than 10 hospitals has been scored on this MIMIC-IV outcome"
+  training: "as W1_mimic (same eICU task cohort, features, pool of 111 hospitals, model)"
+  evaluation: "as W1_mimic (MIMIC-IV 75% evaluation subset, icustays los > 7 days)"
+  arms:
+    nearest10: "as W1_mimic: nearest 10 subsampled to the W1_mimic training size, 10 repeats averaged"
+    pooled_all: "every pool hospital, all stays, no subsampling"
+  statistic: "AUROC(nearest10) - AUROC(pooled_all); 2,000 paired patient-level bootstrap CI with models fixed"
+  success: "difference > 0 with the lower 95% bound above 0; reported pass or fail. A fail with the upper bound below 0 means pooling is better"
+  descriptive:
+    pooled_size_matched: "every pool hospital, subsampled to the W1_mimic training size, 10 repeats averaged (selection with size held fixed)"
+    nearest_k_full: "nearest k by the CHF DHM angle, all stays, k = 10, 20, 40, 80 (how the gain changes as hospitals are added)"
+    calibration: "calibration-in-the-large and slope for every arm"
+  seed: 20261113
+
+W1_proxy:
+  status: locked  # the user approved the recommended design in advance ("Go ahead and just go with the recommended way"), 2026-11-06, before computing
+  question: "Does the W1 rule add anything beyond hospital type (region, teaching, bed size), which may proxy local stay-length practice?"
+  blinding: "Hospital type of the pool was tabulated before this block was written (nearest 10 hold 3 of the 9 Northeast pool hospitals, 1 teaching, mixed bed sizes). No type-based training set has been scored on MIMIC-IV"
+  training: "as W1_mimic (same eICU task cohort, features, pool, model)"
+  evaluation: "as W1_mimic (MIMIC-IV 75% evaluation subset, icustays los > 7 days)"
+  mimic_type: "Northeast, teaching, >= 500 beds (BIDMC)"
+  arms:
+    nearest10: "as W1_mimic"
+    type_matched: "200 draws: pool hospitals ranked by the number of MIMIC-IV type matches (Northeast, teaching, >= 500 beds; missing = no match), top 10 with random tie-breaks"
+    nearest10_non_ne: "nearest 10 by the CHF DHM angle among non-Northeast pool hospitals"
+    random10_non_ne: "200 random draws of 10 non-Northeast pool hospitals"
+  size_control: "every arm subsampled to n = min(W1_mimic training size, 5th percentile of type_matched and random10_non_ne sizes, nearest10_non_ne size); nearest arms 10 repeats averaged, each draw subsampled once"
+  tests:
+    T1: "AUROC(nearest10) - mean AUROC(type_matched): DAS beats a hospital-type rule"
+    T2: "AUROC(nearest10_non_ne) - mean AUROC(random10_non_ne): DAS works without the region"
+  statistic: "paired patient-level bootstrap, 2,000 resamples, draw means from the first 100 draws; one-sided p, Holm across T1 and T2; percentile among the 200 draws"
+  success: "Holm p < 0.05 for each test, reported pass or fail"
+  descriptive: ["northeast_all: every Northeast pool hospital, all stays", "type composition of each arm", "calibration-in-the-large and slope"]
+  seed: 20261114
+
+W1_diabetes:
+  status: locked  # the user asked to test it ("Let's test DAS for diabetes as well"), 2026-11-06, before computing; the design repeats the approved CHF blocks with only the condition changed
+  question: "Does the W1 rule work with the diabetes DHM angle instead of CHF, for ICU stay > 7 days?"
+  why: "Diabetes tied CHF in the development half (+0.016, 0.008 to 0.023) but was not taken forward"
+  blinding: "Not blind to the task. The eICU confirmation half and the MIMIC-IV stay > 7 days outcome were read for the CHF rule. No diabetes-angle training set has been scored on either"
+  steps:
+    eicu_confirmation: "as D1_winners (script 23 --only W1d): 41 confirmation targets, 200 random sets of 10, target bootstrap; pass if one-sided p < 0.05"
+    mimic_vs_random: "as W1_mimic (script 24 --condition diabetes)"
+    mimic_vs_pooled: "as W1_pooled (script 25 --condition diabetes)"
+    mimic_vs_type: "as W1_proxy (script 26 --condition diabetes), T1 and T2 Holm-corrected"
+  rule: "every step runs and is reported pass or fail, whatever the earlier steps show; seeds as in the CHF scripts"
+  label: "post hoc relative to the CHF sequence"
+
+W3_mimic:
+  status: locked  # drafted 2026-11-07 ("we align everything so no missing analysis"); approved by the user 2026-11-07 ("Approve"), before computing
+  question: "Do the confirmed W3 (CHF angle) and W3d (diabetes angle) rules beat random 10, pooling and hospital type for hospital stay > 14 days in MIMIC-IV?"
+  design: "the same four analyses as W1 and W1_diabetes, with only the outcome changed"
+  blinding: "Hospital stay > 14 days has not been modelled in MIMIC-IV. ICU stay > 7 days, a related outcome, was read for W1 and W1d. The nearest 10 hospitals are the same as for W1 and W1d, since the angle does not depend on the task"
+  outcome:
+    eicu_training: "hospitaldischargeoffset - hospitaladmitoffset > 14 days, M1 cohort"
+    mimic_evaluation: "admissions dischtime - admittime > 14 days, for the hospitalization of each MIMIC-IV evaluation stay"
+  pool: "as W1, and hospitals with no events dropped (removes none: pools 111 for CHF and 96 for diabetes, as W1 and W1d)"
+  steps:
+    mimic_vs_random: "as W1_mimic (script 24 --task hosp_los_gt14d, --condition chf and diabetes)"
+    mimic_vs_pooled: "as W1_pooled (script 25 --task hosp_los_gt14d, both conditions)"
+    mimic_vs_type: "as W1_proxy (script 26 --task hosp_los_gt14d, both conditions), T1 and T2 Holm-corrected within each condition, as before"
+  rule: "every step runs and is reported pass or fail, whatever the earlier steps show; seeds as in the W1 scripts"
+  label: "post hoc to the task screen (A_task_screen_ext); MIMIC-IV not blind"
+  outputs: "results/w1_mimic_a6.csv, w1_mimic_a6_diabetes.csv, w1_pooled_a6*.csv, w1_proxy_a6*.csv"
+
+W_mimic_other_angles:
+  status: locked  # the user asked to run the remaining angles in MIMIC-IV ("Yes we run for mimic the rest"), 2026-11-08, before computing; the design repeats the approved W1/W3 blocks with only the angle changed, as W1_diabetes
+  question: "Do the hypertension, AF and combined DHM angles pick better eICU training hospitals for MIMIC-IV, for ICU stay > 7 days and hospital stay > 14 days?"
+  why: "Figure 3 of the rebuilt paper shows every angle in eICU; MIMIC-IV had only CHF and diabetes"
+  blinding: "Not blind. Both MIMIC-IV stay outcomes were read for the CHF and diabetes angles and for case mix. No hypertension, AF or combined-angle training set has been scored on MIMIC-IV for these outcomes"
+  angles:
+    hypertension: "DHM angle to MIMIC-IV (ref_2011_2019); flagged as a weak external match (MIMIC-IV at the 99th percentile of 10th-nearest DHM angle)"
+    af: "DHM angle to MIMIC-IV (ref_2011_2019)"
+    combined: "mean of the four conditions' DHM angles available for a hospital (the joined angle of S_site_selection_aligned); pool = hospitals with at least one angle"
+  steps:
+    mimic_vs_random: "as W1_mimic / W3_mimic (script 24 --condition <angle> [--task hosp_los_gt14d])"
+    mimic_vs_pooled: "as W1_pooled (script 25)"
+    mimic_vs_type: "as W1_proxy (script 26), T1 and T2 Holm-corrected within each run"
+  rule: "every step runs and is reported pass or fail; seeds as in the CHF scripts; no correction across angles"
+  label: "post hoc relative to the CHF sequence"
+
+W_mimic_aligned:
+  status: locked  # the user asked to align MIMIC-IV with the eICU site-selection design ("No we do mimic. We align everything.. also why not mimic 10 farthest 10 random vs 10 closest?"), 2026-11-08, before computing; extends W_mimic_other_angles
+  question: "MIMIC-IV counterpart of S_site_selection_aligned: every angle and every outcome, with nearest, farthest, case-mix and random sets"
+  angles: "diabetes, hypertension, CHF, AF (DHM, ref_2011_2019) and combined (mean of the four)"
+  outcomes: "in-hospital death (eICU death, MIMIC-IV admissions.hospital_expire_flag), ICU stay > 7 days, hospital stay > 14 days"
+  model: "M1 + Charlson + the four conditions' D, H, M flags, as S_site_selection_aligned and W1"
+  arms: "nearest 10, farthest 10 (new), case-mix nearest 10, 500 random sets of 10 (script 24); pooled all (script 25); hospital type T1 and non-Northeast T2 (script 26)"
+  size: "every script-24 set subsampled to min(smallest selected set, 5th percentile of random sizes), as S_site_selection_aligned; the farthest arm draws its subsamples from its own seed so the other arms are unchanged"
+  estimate: "gain over the random mean with patient-bootstrap CI for nearest and farthest; percentile among the 500 random sets; calibration-in-the-large and slope"
+  blinding: "Not blind. The stay outcomes were read for CHF and diabetes; death was read in earlier MIMIC-IV runs with other models (P0, M1, M2)"
+  rule: "all 15 angle-outcome runs are reported, pass or fail; no correction across angles or outcomes"
+  supersedes: "W_mimic_other_angles (stopped after hypertension stay runs, before results were read)"

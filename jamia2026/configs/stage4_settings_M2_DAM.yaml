@@ -1,0 +1,55 @@
+# Stage 4 settings for M2 = the paper's model + a Charlson index from each dataset's own
+# documentation (script 11), construct DAM. The same choices as the M1 lock otherwise.
+# Locked 2026-11-05 before any M2 model was fitted on eICU sites for MIMIC-IV. MIMIC-IV
+# outcomes had already been read for the DAM analysis, the Northeast check and
+# the case-mix check, so this run is not blind to those results.
+status: locked
+output_tag: _M2_DAM
+model_type: M2
+
+
+construct: DAM           # "diagnosis, home medication, in-stay medication"
+reference: ref_2011_2019  # the same reference cohort as DAM, so differences reflect the construct
+conditions: [diabetes, hypertension, chf, af]
+flagged_conditions:
+  hypertension: carried over from the DAM decision (weak external match); reported, not read as a test of DAS selection
+
+rank_stability_threshold: mean nearest-10 overlap >= 8 of 10 over 1,000 reference bootstraps
+  # conditions below the threshold are still run and reported as not meeting it
+
+model:
+  pipeline: "scripts/m1_model.py design matrix, then the scripts/p0_model.py pipeline (standardization, logistic regression)"
+  C: 1000000.0             # unpenalized, as in the paper (scripts/09_xgboost_prediction.py)
+  predictors: "APACHE IV score (eICU official; MIMIC-IV mimic-code APS III + age + ICD chronic health), age, gender, ethnicity, unit stay type, unit admission source, Charlson index without age (eICU problem-list codes + pastHistory; MIMIC-IV billing codes); no GCS sensitivity"
+  training_cohort: eligible eICU stays with an APACHE IVa score and every M1 input at the selected hospitals (not a condition subcohort)
+
+evaluation:
+  cohort: MIMIC-IV held-out subset (75% of patients, all year groups), first qualifying ICU stay, alive and in the ICU at 24 h
+  outcome: hospital_expire_flag
+  recalibration: none
+
+hospital_pool: "all eligible hospitals (>= 100 evidence-positive stays under DAM); sensitivity: hospitals with all three sources (k = 10)"
+k: {primary: 10, secondary: [5, 20]}
+strategies:
+  nearest_k: k lowest DAS to MIMIC-IV
+  random_k: 500 draws without replacement from the pool
+  farthest_k: k highest DAS
+  pooled: all eligible hospitals
+  source_complete_random_k: 500 draws from hospitals with all three sources
+  northeast_pool: all eligible Northeast hospitals, region-matched comparator (secondary)
+size_control:
+  target: per condition and k, the smallest of nearest-k, farthest-k and the 5th percentile of random-k training sizes
+  procedure: uniform random subsample of training stays to the target; nearest-k and farthest-k
+             10 repeats with predictions averaged; each random draw subsampled once;
+             a draw already below the target is used as is
+  report: both equal-hospital-count and size-controlled; size-controlled is primary for nearest vs random
+
+primary_contrasts:
+  metrics: [AUROC, Brier]
+  definition: AUROC(nearest) - mean AUROC(random); mean Brier(random) - Brier(nearest); positive favours nearest
+  statistic: difference, plus the percentile of the nearest model among the 500 random draws
+  ci: 2,000 patient-level bootstrap resamples of the evaluation cohort, models held fixed;
+      the random mean inside the bootstrap uses the first 100 of the 500 draws (computing cost)
+  multiplicity: Holm across the 8 condition-by-metric contrasts if p-values are shown
+secondary: [AUPRC, calibration slope, calibration-in-the-large, nearest vs farthest, nearest vs pooled]
+seed: 20261105
