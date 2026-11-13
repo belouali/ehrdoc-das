@@ -1,0 +1,54 @@
+# Stage 4 settings for construct DHM: the same choices as the DAM lock in
+# stage4_settings.yaml, with only the construct and the output names changed.
+# Locked 2026-11-05 before any model with this construct was fitted. MIMIC-IV
+# outcomes had already been read for the DAM analysis, the Northeast check and
+# the case-mix check, so this run is not blind to those results.
+status: locked
+output_tag: _DHM
+
+
+construct: DHM           # "diagnosis, past history (eICU pastHistory; MIMIC-IV index discharge summary), in-stay medication: the published construct"
+reference: ref_2011_2019  # the same reference cohort as DAM, so differences reflect the construct
+conditions: [diabetes, hypertension, chf, af]
+flagged_conditions:
+  hypertension: carried over from the DAM decision (weak external match); reported, not read as a test of DAS selection
+
+rank_stability_threshold: mean nearest-10 overlap >= 8 of 10 over 1,000 reference bootstraps
+  # conditions below the threshold are still run and reported as not meeting it
+
+model:
+  pipeline: scripts/p0_model.py (median imputation with indicators, standardization, L2 logistic regression)
+  C: 0.01                 # results/p0_locked.yaml, eICU hospital-grouped CV
+  predictors: "P0 with GCS (scripts/p0_model.py feature_columns); sensitivity: P0 without GCS"
+  training_cohort: all eligible eICU stays with a discharge status at the selected hospitals (not a condition subcohort)
+
+evaluation:
+  cohort: MIMIC-IV held-out subset (75% of patients, all year groups), first qualifying ICU stay, alive and in the ICU at 24 h
+  outcome: hospital_expire_flag
+  recalibration: none
+
+hospital_pool: "all eligible hospitals (>= 100 evidence-positive stays under DAM); sensitivity: hospitals with all three sources (k = 10)"
+k: {primary: 10, secondary: [5, 20]}
+strategies:
+  nearest_k: k lowest DAS to MIMIC-IV
+  random_k: 500 draws without replacement from the pool
+  farthest_k: k highest DAS
+  pooled: all eligible hospitals
+  source_complete_random_k: 500 draws from hospitals with all three sources
+  northeast_pool: all eligible Northeast hospitals, region-matched comparator (secondary)
+size_control:
+  target: per condition and k, the smallest of nearest-k, farthest-k and the 5th percentile of random-k training sizes
+  procedure: uniform random subsample of training stays to the target; nearest-k and farthest-k
+             10 repeats with predictions averaged; each random draw subsampled once;
+             a draw already below the target is used as is
+  report: both equal-hospital-count and size-controlled; size-controlled is primary for nearest vs random
+
+primary_contrasts:
+  metrics: [AUROC, Brier]
+  definition: AUROC(nearest) - mean AUROC(random); mean Brier(random) - Brier(nearest); positive favours nearest
+  statistic: difference, plus the percentile of the nearest model among the 500 random draws
+  ci: 2,000 patient-level bootstrap resamples of the evaluation cohort, models held fixed;
+      the random mean inside the bootstrap uses the first 100 of the 500 draws (computing cost)
+  multiplicity: Holm across the 8 condition-by-metric contrasts if p-values are shown
+secondary: [AUPRC, calibration slope, calibration-in-the-large, nearest vs farthest, nearest vs pooled]
+seed: 20261105

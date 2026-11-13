@@ -1,0 +1,60 @@
+# A_condition_scan: medication rules for the eight added conditions (approved by the user 2026-11-07, before any gate was computed).
+# Diagnosis (Quan ICD on the eICU icd9code column) and history (pastHistory picklist) come from
+# scripts/11_charlson_features.py unchanged. Only the medication sources are defined here.
+# The paper's four conditions keep their published keyword rules (phenotypes.yaml).
+#
+# Standard: WHO ATC classification as distributed in RxNorm, read from NLM RxNav
+# (RxClass, relaSource ATC; user's choice 2026-11-07, "Use NLM service"). Script 29_atc_rxnav.py.
+# Only ATC codes and RxNorm identifiers are sent to NLM. eICU drug names never leave the machine.
+#   1. each listed ATC class is fetched with its member ingredients; a level-5 code is read from
+#      its level-4 parent (member SourceId equal to the code)
+#   2. precise ingredients (e.g. tiotropium bromide) are resolved to the ingredient (tiotropium)
+#   3. brand names of each ingredient are added (RxNorm BN)
+#   4. ingredients of exclude_atc classes are removed
+#   5. an eICU drugname counts if it contains one of the names as a whole word (local match)
+# Reported: RxNorm version, codes not found, names searched and matched, rows and stays matched.
+# Code check against RxNorm 02-Nov-2026 (results/atc_code_check.csv): R03AL has no ingredient-level
+# members (its components are in R03AC and R03BB); J05AX08, J05AX12, L04AA13, L04AA29, L04AA37 are
+# old codes, found under their current codes (J05AJ01, J05AJ03, L04AK01, L04AF01, L04AF02);
+# B03XA01 (epoetin alfa) carries no ATC code in RxNorm, so epoetin alfa is not covered.
+status: locked
+
+in_stay:  # eICU medication table (M)
+  chronic_pulmonary_disease:  # long-acting bronchodilators and roflumilast (GOLD)
+    atc: [R03BB, R03AC12, R03AC13, R03AC18, R03AC19, R03DX07]
+    exclude_atc: [R03BB01, R03BB02]  # ipratropium, oxitropium: short-acting, nebulized widely in the ICU
+  liver_disease:  # hepatic encephalopathy treatment (AASLD/EASL)
+    atc: [A06AD11, A07AA11]
+
+home:  # eICU admissionDrug table (A)
+  dementia:  # anticholinesterases and memantine
+    atc: [N06DA, N06DX01]
+  aids:  # antiretrovirals; hepatitis B-only nucleosides left out
+    atc: [J05AE, J05AF, J05AG, J05AJ, J05AR, J05AX07, J05AX09]
+    exclude_atc: [J05AF08, J05AF10, J05AF11]  # adefovir, entecavir, telbivudine
+  rheumatic_disease:  # DMARDs used mainly for inflammatory arthritis; methotrexate and sulfasalazine left out (shared with cancer and IBD)
+    atc: [P01BA02, L04AK01, L04AA24, L04AC07, L04AC14, L04AF01, L04AF02]
+  peripheral_vascular_disease:  # claudication agents (ACC/AHA PAD); antiplatelets and statins left out
+    atc: [B01AC23, C04AD03]
+  renal_disease:  # phosphate binders, calcimimetics, active vitamin D, erythropoiesis-stimulating agents (KDIGO)
+    atc: [V03AE, H05BX01, H05BX02, H05BX03, A11CC04, B03XA02, B03XA03]
+    exclude_atc: [V03AE01, V03AE09, V03AE10]  # potassium binders: given for acute hyperkalemia
+  cancer:  # antineoplastic and endocrine therapy
+    atc: [L01, L02]
+    exclude_atc: [L01BA01,  # methotrexate: low-dose rheumatologic use
+                  L01BB02, L01BB03,  # mercaptopurine, thioguanine: inflammatory bowel disease
+                  L01EG02, L01EG04,  # everolimus, sirolimus: transplant immunosuppression
+                  L01XX33,  # celecoxib: analgesic
+                  L02AA, L02AB]  # estrogens, progestogens: contraception, menopause, appetite (megestrol)
+
+dropped:  # no condition-specific drug class; dropped by the three-source rule (user, 2026-11-07)
+  myocardial_infarct: "antiplatelets, beta blockers and statins are shared with other cardiac and vascular disease"
+  cerebrovascular_disease: "antiplatelets, anticoagulants and statins are shared with AF and coronary disease"
+  peptic_ulcer_disease: "proton pump inhibitors and H2 blockers are given widely as prophylaxis"
+  paraplegia: "baclofen and similar agents are shared with other spasticity causes"
+  obesity: "no history or medication source in eICU"
+
+notes:
+  versions: "ATC codes change between releases; current codes are used, and the RxNorm version is recorded with the results"
+  check_before_use: "each listed code is checked against RxNav; a code that does not exist is reported, not silently dropped"
+  lactulose: "lactulose is also a laxative; the liver M lobe may include constipation treatment (same as the paper's cirrhosis rule)"

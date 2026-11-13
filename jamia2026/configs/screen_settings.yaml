@@ -1,0 +1,419 @@
+# DAS screen: tasks, conditions, tables. Positive controls B5-B8 (P1-P8) approved by the user and locked 2026-11-06 before any were computed. Parts A-C and validation remain draft.
+# Mirrors analysis plan/DAS_screen_draft.md. Switch to "locked" only after the user approves.
+status: draft
+positive_controls_status: locked
+order: [task, condition, table, validation]
+task:
+  candidates: [A1_mortality_M1, A2_mortality_M2, A3_los_gt7d, A4_icu_readmission, A5_comorbidity_only]
+  pass: "ablation loss >= 0.01 AUROC and perturbation loss >= 0.01 AUROC, or |CITL shift| >= 0.1"
+condition:
+  candidates: [diabetes, hypertension, chf, af, copd, ckd, cirrhosis, cancer, stroke]
+  optional: [obesity, malnutrition]
+  anchors:
+    diabetes: "insulin or glucose"
+    chf: "BNP or loop diuretic"
+    ckd: "race-free CKD-EPI 2021 eGFR < 60 from a pre-ICU or stable creatinine; B2 adjusted for race, gaps reported by race"
+    copd: "inhaled bronchodilator or steroid"
+    cirrhosis: "bilirubin, INR or lactulose"
+  pass:
+    B1_signal: "share of hospital pairs beyond split-half noise >= 0.50"
+    B2_discretion: "hospital SD (logit) of documentation among anchor-positive >= 0.3, bootstrap CI excludes 0"
+    B3_casemix: "Mantel rho(DAS distance, case-mix distance) < 0.3"
+    B4_shared_habit: "reported, not a gate"
+    no_anchor: "fails B2"
+table:
+  candidates: [diagnosis, past_history, home_meds, instay_meds]
+  optional: [labs_ordered, procedures]
+  pass:
+    C1_independence: "P(B|A) < 0.8 or adds B1 signal"
+    C2_same_meaning: "lobe share ratio within 2-fold and same record type"
+    C3_coverage: ">= 90% of hospitals with entries, missingness ICC < 0.2"
+    C4_stability: "no reference year group below half the median share"
+validation:
+  primary: "eICU leave-target-out, 82 large targets, chosen task"
+  secondary: "MIMIC-IV forward and reverse (not blind)"
+  ideal: "second external ICU dataset"
+positive_controls:
+  common: "aggregates only; one prespecified model per prediction; Holm across P1, P2, P4-P8; P3 exploratory; failed predictions reported"
+  B5_race_egfr:
+    creatinine: "MIMIC-IV primary: latest creatinine from an earlier admission/ED visit within 365 days; eICU secondary: lowest ICU creatinine"
+    P1: "race-free eGFR 45-60: OR(documented CKD, Black vs non-Black) < 1, 95% CI excludes 1; logistic, hospital RE, age, sex, eGFR"
+    P2: "band (45-60 vs <30) x race interaction CI excludes 0; control-band OR CI includes 1"
+    P3: "exploratory: MIMIC-IV 3.1 P1 OR closer to 1 in 2020-2022 than 2011-2019; CI reported, no test"
+    P4: "Spearman(hospital CKD DAS, Black share) > 0, 2,000 hospital bootstrap CI excludes 0; eICU hospitals >= 100 stays; no race adjustment"
+  B6_obesity_bmi:
+    P5: "trend OR per BMI class (30-34.9, 35-39.9, >=40) > 1, CI excludes 1; logistic, hospital RE, age, sex"
+    P6: "hospital RE SD (logit) >= 0.5, bootstrap CI excludes 0.3; also with labs per patient-day"
+  B7_lab_gradient:
+    stages:
+      aki: "KDIGO creatinine stage 1/2/3 from first ICU creatinine"
+      hyponatremia: "130-134 / 125-129 / <125 mmol/L"
+      anemia: "Hb 10-10.9 / 8-9.9 / <8 g/dL"
+      thrombocytopenia: "plt 100-149 / 50-99 / <50 x10^9/L"
+    P7: "per condition, trend OR per stage > 1, CI excludes 1; worst ICU value; logistic, hospital RE, age, sex; top-stage rate reported"
+    P8: "per condition, SD(hospital RE, mildest) / SD(most severe) > 1, bootstrap CI excludes 1; also with labs per patient-day"
+  B8_intensity: "labs per patient-day per hospital; P6, P8, B2 with and without adjustment; Spearman with DAS reported; no prediction"
+B4_shared_habit:
+  status: locked  # approved by the user 2026-11-06, before computing
+  conditions: [obesity, aki, hyponatremia, anemia, thrombocytopenia]
+  hospital_effect: "random-intercept mode from P5/P7 models (class or stage, age, sex); second version + labs per patient-day"
+  hospitals: "eICU hospitals with >= 30 anchor-positive stays for each of the five conditions"
+  P9: "median of 10 pairwise Spearman correlations > 0, 1,000 hospital bootstrap CI excludes 0"
+  P10: "PC1 variance share above 1,000 per-condition hospital permutations, one-sided p < 0.05; loadings reported"
+  P11: "descriptive: PC1 vs labs per patient-day, size, teaching, region"
+  P12: "Spearman(|PC1|, median DHM angle to pooled eICU over the 4 published conditions) > 0, 2,000 hospital bootstrap CI excludes 0"
+  multiplicity: "Holm across P9, P10, P12"
+B9_undocumented_lobe:
+  status: locked  # approved by the user 2026-11-06, before computing
+  part1_diabetes:
+    construct: "DHM-U: 7 published DHM lobes + U (anchor positive, no D/H/M record); population = recorded in D/H/M or anchor positive"
+    anchor: ">= 2 glucose values >= 200 mg/dL, ICU admission -6 h to ICU discharge"
+    eicu_labs: [glucose, bedside glucose]
+    mimic_itemids: [50809, 50931, 52027, 52569]
+    sensitivity: ["one value >= 200", "two values >= 24 h apart", "primary anchor excluding stays with systemic corticosteroids"]
+    reference: "pooled eICU; hospitals >= 100 records; MIMIC-IV 2011-2019 reference subset"
+    P13: "share of eICU hospital pairs above split-half noise floor, DHM-U minus DHM > 0, 1,000 hospital bootstrap CI excludes 0"
+    P14: "Spearman(DHM-U angle, |diabetes documentation effect|) minus Spearman(DHM angle, |effect|) > 0, 2,000 hospital bootstrap CI excludes 0; effect = RE mode among anchor-positive stays, age, sex, n glucose >= 200"
+    P15: "check: |Spearman(DHM-U angle, glucose values per patient-day)| < 0.3"
+    descriptive: "MIMIC-IV percentile among eICU hospitals, DHM-U vs DHM"
+  part2_profile:
+    conditions: [obesity, aki, hyponatremia, anemia, thrombocytopenia]
+    lobes: "per condition D only, H only, D+H, U; each condition vector scaled to unit length; 20-entry joined vector"
+    hospitals: "eICU, >= 30 anchor-positive stays for every condition"
+    P16: "share of pairs above split-half noise >= 50% and > median of the 4 published DHM conditions; 1,000 hospital bootstrap CI of the difference excludes 0"
+    P17: "check: |Spearman(profile angle, labs per patient-day)| < 0.3"
+    P18: "descriptive: Spearman(profile angle, |PC1| from B4)"
+    mimic: "second phase, ICD rules and note terms to be drafted"
+  multiplicity: "Holm across P13, P14, P16"
+A_task_screen:
+  status: locked  # approved by the user 2026-11-06, before computing
+  why: "C1 and E1 found almost no room for hospital selection with in-hospital death and M1; documentation may matter more for other tasks"
+  known_before_drafting:
+    A1_mortality_M1: "done: C1 ranking ceiling +0.006 at k = 10, E1 no gain; dropped"
+    A2_mortality_M2: "done: adding Charlson raises hospital-grouped CV AUROC by 0.004 (0.811 to 0.815), under the 0.01 ablation bar; dropped"
+    prevalence_read: "aggregate only, eICU M1 cohort: ICU stay > 7 days 11.0%, a later unit stay in the same hospitalization 12.6%"
+  tasks:
+    A3_los_gt7d:
+      outcome: "ICU length of stay > 7 days (eICU unitdischargeoffset; MIMIC-IV icustays los), among stays alive at 24 h"
+      features: "M1 inputs + Charlson + the 12 condition flags (4 conditions x D, H, M)"
+    A4_icu_readmission:
+      outcome: "a later ICU stay in the same hospitalization after the index ICU discharge alive (eICU unitvisitnumber within patienthealthsystemstayid, ICU unit types only; MIMIC-IV icustays within hadm_id)"
+      features: "M1 inputs + index LOS + Charlson + the 12 condition flags"
+      cohort: "index stays discharged alive from the ICU"
+    A5_comorbidity_only:
+      outcome: "in-hospital death"
+      features: "age, sex, Charlson and the 12 condition flags only; a deliberately documentation-heavy model"
+  gate:  # outcomes from eICU training data only, hospital-grouped 5-fold CV; no target selection yet
+    ablation: "AUROC loss when Charlson and the 12 flags are removed (for A5: against age and sex only)"
+    perturbation: "in each training fold, move every hospital's documentation rate per flag to the 10th and then the 90th percentile hospital rate by random deletion or addition of flags; report the AUROC and calibration-in-the-large change at held-out hospitals, worst of the two directions"
+    pass: "ablation loss >= 0.01 AUROC and perturbation loss >= 0.01 AUROC, or |CITL shift| >= 0.1 (unchanged from the draft)"
+  then_for_passing_tasks:
+    ceiling: "the C1 design for that task, development half only, k = 10 primary"
+    candidates: "DAS nearest (the paper's DHM) per condition and joined, case-mix nearest; counted against the D1 budget (19 left)"
+    order: "the ceiling first; if it is under 0.010, stop for that task"
+  mimic: "secondary, after a winner is approved; not blind"
+  model: "logistic regression, the scripts/p0_model.py pipeline, C = 1e6"
+  seed: 20261109
+A_task_screen_ext:
+  status: locked  # drafted 2026-11-07; approved by the user 2026-11-07 ("Yes we do the rest"), before computing
+  why: "added after A3 (ICU stay > 7 days, CHF angle) was confirmed in eICU and tested in MIMIC-IV; post hoc to the A screen and reported as such"
+  question: "is the A3 result specific to ICU stay, or does it extend to other practice-driven outcomes?"
+  tasks:
+    A6_hospital_los_gt14d:
+      outcome: "hospital length of stay > 14 days (eICU hospitaldischargeoffset - hospitaladmitoffset; MIMIC-IV admissions dischtime - admittime), among stays alive at 24 h"
+      features: "M1 inputs + Charlson + the 12 condition flags (as A3)"
+      overlap: "share of A6 events that are also A3 events reported; if both confirm, presented as one outcome family"
+    A7_discharge_facility:
+      outcome: "discharge to a facility vs home, among hospital survivors"
+      facility_eicu: [Skilled Nursing Facility, Nursing Home, Rehabilitation]
+      home_eicu: [Home]
+      excluded_eicu: [Death, Other External, Other, Other Hospital, missing]
+      facility_mimic: [SKILLED NURSING FACILITY, REHAB, ASSISTED LIVING]
+      home_mimic: [HOME, HOME HEALTH CARE]
+      excluded_mimic: [DIED, HOSPICE, CHRONIC/LONG TERM ACUTE CARE, ACUTE HOSPITAL, PSYCH FACILITY, AGAINST ADVICE, OTHER FACILITY, HEALTHCARE FACILITY, missing]
+      sensitivity_mimic: "CHRONIC/LONG TERM ACUTE CARE counted as facility"
+      features: "M1 inputs + Charlson + the 12 condition flags"
+  known_before_drafting: "category counts only, whole tables, no hospital-level outcomes: eICU hospital stay > 14 days 15.3% of unit stays; eICU facility vs home about 25% facility among home or facility"
+  gate: "as A_task_screen (ablation and perturbation, hospital-grouped 5-fold CV, eICU training outcomes only; same pass rule)"
+  ceiling: "C1 design, development half only, k = 10; stop for that task if under 0.010"
+  candidates: "DAS nearest 10 (the paper's DHM) per condition (4) and joined (1), case-mix nearest 10 (1); 6 per task, 12 in all"
+  budget: "the D1 budget of 40 (39 used) is raised to 51 for these 12 candidates only; the paper reports all 51 candidates searched"
+  winner: "the user approves any winner, with every setting, before its confirmation run"
+  confirmation: "as D1 winners: 41 confirmation targets, 200 random sets of 10, size matched, once; Holm across the winners of this block"
+  mimic: "only for confirmed winners, labeled not blind, after its settings are approved"
+  model: "logistic regression, the scripts/p0_model.py pipeline, C = 1e6"
+  seed: 20261116
+  winners:
+    status: locked  # chosen by the user 2026-11-07 ("Both ... No hold correction"), before the confirmation run
+    W3: "A6 hospital stay > 14 days, nearest 10 by the CHF DHM angle"
+    W3d: "A6 hospital stay > 14 days, nearest 10 by the diabetes DHM angle"
+    multiplicity: "no Holm correction, by the user's choice; each confirmed if mean gain > 0 and the lower 95% target-bootstrap bound > 0 (one-sided p < 0.05); the Holm-adjusted p is still reported"
+    run: "scripts/23_confirmation.py --only W3 W3d, once, 41 confirmation targets with >= 20 events"
+  deviation_2026_11_07: "pool hospitals with no events (or only events) are dropped, since a single-hospital model cannot be fit; this removed 1 of 141 A6 pool hospitals and none for A7; found when the ceiling run stopped, before any result was read"
+A_construct_condition_ext:
+  status: locked  # drafted 2026-11-07 ("Yes, draft them"); approved by the user 2026-11-07 ("Approve as written"), before computing; the OPEN items are decided by the user before the step they govern (multiplicity and confirmation before any winner is chosen)
+  why: "the other DAS versions were tested for death only, and conditions beyond the four were drafted but never run; post hoc to every earlier block and reported as such"
+  tasks: [A3_los_gt7d, A6_hospital_los_gt14d]  # the two tasks with a confirmed winner; features and models unchanged (M1 + Charlson + the 12 flags)
+  part1_constructs:
+    question: "does another DAS version pick better training hospitals than the paper's DHM for the same condition?"
+    constructs:
+      DAM: "diagnosis, home medication, in-stay medication; 7 lobes; eicu_flags A columns"
+      DHAM: "diagnosis, history, home medication, in-stay medication; 15 lobes"
+    conditions: [diabetes, hypertension, chf, af, joined]
+    candidates: "nearest 10 per construct x condition x task: 2 x 5 x 2 = 20"
+    excluded:
+      learned_distance: "its weights were fit on mortality transfer between eICU hospital pairs; refitting per task is a new method, not a version"
+      DHM_U: "diabetes only, and P13 found no gain in separation"
+    contrasts:
+      vs_random: "gain over random 10, as every earlier candidate (ledger)"
+      vs_DHM: "paired difference against nearest 10 by the paper's DHM for the same condition and task, same targets, target bootstrap"
+  part2_conditions:
+    question: "do conditions beyond the four give a better angle for these tasks?"
+    conditions: [cancer, obesity, copd, ckd, cirrhosis, stroke]
+    step0_phenotypes: "include and exclude strings per source drafted in configs/phenotypes_ext.yaml for eICU diagnosis, past history, home and in-stay medication; approved by the user before any flag is computed"
+    sources_note:
+      obesity: "no history or medication source in eICU; BMI-anchored D-U profile instead (user, 2026-11-07), see configs/phenotypes_ext.yaml"
+      cancer: "home medication = oral antineoplastic or hormonal therapy; in-stay medication expected sparse, reported"
+    step1_outcome_free_checks:
+      coverage: ">= 100 evidence-positive records in at least 60 of the 82 targets and 100 pool hospitals"
+      B1_signal: "share of hospital pairs beyond split-half noise >= 0.50, as the B1 rule"
+      rule: "only conditions passing both enter step 2; checks reported for all six"
+    step2_candidates: "nearest 10 by the DHM angle per passing condition and task (up to 12), plus joined over all passing conditions and the four (2); up to 14"
+    contrasts:
+      vs_random: "as above"
+      vs_current_best: "paired difference against nearest 10 by the CHF DHM angle (the confirmed W1 and W3), same targets"
+  data: "development half only (41 targets), the same targets as the earlier candidates"
+  budget: "up to 34 new candidates; the ledger rises from 51 to at most 85; the paper reports every candidate"
+  winner: "only with the user's approval, and only if the lower 95% bound of its paired contrast (vs_DHM or vs_current_best) is above 0"
+  confirmation: "OPEN for the user: the A3 and A6 confirmation halves were read once (W1, W1d, W3, W3d); a second read is labeled not independent"
+  mimic: "only for an approved winner; new conditions need MIMIC-IV phenotypes (ICD, discharge-note history, medications) approved first; labeled not blind"
+  multiplicity: "OPEN for the user: Holm across each part's paired contrasts, or none as in A_task_screen_ext"
+  model: "logistic regression, the scripts/p0_model.py pipeline, C = 1e6"
+  seed: 20261120
+  deviation_2026_11_07: "obesity: the locked text said D and H; eICU has no obesity history entry, so the user chose a BMI-anchored D-U profile (2026-11-07, 'BMI-anchored profile') before any part 2 flag was computed"
+A_condition_scan:
+  status: locked  # drafted 2026-11-07 after the user asked for a justified rule for every threshold; approved by the user 2026-11-07 ('You can lock and run the gates', once both gate numbers were sourced), before any gate was computed
+  why: "A_construct_condition_ext part 2 stopped at its outcome-free checks: its coverage bars (60 targets, 100 hospitals) had no source, and its B1 gate would also have excluded CHF and AF; this block replaces part 2 step 2 with a rule whose every threshold has a stated source; part 2 checks stay reported"
+  tasks: [A3_los_gt7d, A6_hospital_los_gt14d]  # models and features unchanged
+  conditions:
+    paper: [diabetes, hypertension, chf, af]  # the paper's phenotypes (phenotypes.yaml), unchanged
+    charlson:  # the 17 Charlson components of scripts/11_charlson_features.py, severity splits merged; chf and diabetes are already in the paper's four
+      myocardial_infarct: [myocardial_infarct]
+      peripheral_vascular_disease: [peripheral_vascular_disease]
+      cerebrovascular_disease: [cerebrovascular_disease]
+      dementia: [dementia]
+      chronic_pulmonary_disease: [chronic_pulmonary_disease]
+      rheumatic_disease: [rheumatic_disease]
+      peptic_ulcer_disease: [peptic_ulcer_disease]
+      liver_disease: [mild_liver_disease, severe_liver_disease]
+      paraplegia: [paraplegia]
+      renal_disease: [renal_disease]
+      cancer: [malignant_cancer, metastatic_solid_tumor]
+      aids: [aids]
+    extra:
+      obesity: "BMI-anchored D-U profile as in configs/phenotypes_ext.yaml (user's choice 2026-11-07)"
+  sources:
+    D: "paper's four: the paper's text rules; Charlson conditions: the Quan ICD rules (mimic-code charlson.sql, run unchanged) on the eICU icd9code column, as in script 11"
+    H: "paper's four: the paper's rules; Charlson conditions: the eICU pastHistory picklist mapping of script 11"
+    M: "in-stay medication, only where a drug class is specific to the condition (guideline classes, listed per condition in configs/phenotypes_ext.yaml or a successor file approved first) and the eICU medication table contains it; otherwise home medication (A) if it contains it; otherwise the condition is dropped (three_source_rule)"
+    medication_standard: "WHO ATC classes for the eight Charlson conditions (chosen 2026-11-07, 'Map to RxNorm/ATC'), with class members and brand names read from NLM RxNav (user's choice 2026-11-07, 'Use NLM service'; only ATC codes and RxNorm identifiers are sent, eICU drug names are matched locally); RxNorm 02-Nov-2026; ATC groups and method in configs/phenotypes_scan.yaml, script 29_atc_rxnav.py; the paper's four keep their published rules"
+    M_vocabulary_check: "2026-11-07, drug-name counts only: the eICU medication table has no CKD, oral cancer, dementia, HIV, rheumatic or PVD drugs (0 rows each), though admissionDrug has them (dementia about 4,100 rows, HIV 690, rheumatic 620, PVD 670)"
+    A: "home medication (eICU admissionDrug), for conditions whose specific drugs are absent from the medication table; chosen by the user 2026-11-07 ('Use home meds (DHA)'); drug lists in configs/phenotypes_scan.yaml, approved first"
+    by_condition:
+      DHM: [diabetes, hypertension, chf, af, chronic_pulmonary_disease, liver_disease]  # specific drugs present in the in-stay table
+      DHA: [dementia, aids, rheumatic_disease, peripheral_vascular_disease, renal_disease, cancer]  # specific drugs only in admissionDrug
+    three_source_rule: "an angle needs three sources (7 lobes), as in the paper's DAS definition; chosen by the user 2026-11-07 ('Yes, drop them')"
+    dropped_by_rule:
+      myocardial_infarct: "no condition-specific drug class (antiplatelets, beta blockers, statins shared)"
+      cerebrovascular_disease: "no condition-specific drug class (antiplatelets, anticoagulants, statins shared)"
+      peptic_ulcer_disease: "no condition-specific drug class (PPIs and H2 blockers given as prophylaxis)"
+      paraplegia: "no condition-specific drug class (baclofen shared with other spasticity)"
+      obesity: "no history or medication source in eICU; the BMI-anchored D-U profile has 2 lobes"
+    screened: "12 conditions: the paper's four, chronic_pulmonary_disease, liver_disease, dementia, aids, rheumatic_disease, peripheral_vascular_disease, renal_disease, cancer"
+    no_home_med_hospitals: "89 eICU hospitals have no admissionDrug record; their DHA profiles hold D and H lobes only, as for DAM and DHAM in part 1; each DHA contrast is also reported for targets with home-medication data"
+    source: "the Charlson definitions are the same ones that build the Charlson score in every task model"
+  construct: "per sources.by_condition: DHM or DHA, 7 lobes each, labeled"
+  gate1_hospital_profile:
+    rule: "a hospital has a profile for a condition if its evidence-positive patients reach n*, the smallest n at which the split-half reliability of hospitals' angle to the pooled eICU profile reaches 0.80 (Spearman-Brown corrected)"
+    n_grid: [25, 50, 75, 100, 150, 200]
+    method: "for each n, hospitals with >= 2n evidence-positive patients; draw two disjoint samples of n patients per hospital, 20 times; reliability = Spearman correlation of the two angles across hospitals, Spearman-Brown corrected to n"
+    fallback: "if no n in the grid reaches 0.80, the condition is dropped: no reliable profile"
+    justification: "0.80 is the standard reliability bar for research measures (Nunnally JC, Bernstein IH. Psychometric Theory, 3rd ed. McGraw-Hill; 1994); split-half reliability corrected with the Spearman-Brown formula (Spearman 1910; Brown 1910, Br J Psychol 3); no outcome is used"
+    paper_check: "the paper's n = 100 is reported against this rule for the four paper conditions"
+  gate1_pairwise:  # revised gate 1, approved and locked by the user 2026-11-07 ('Ok'); replaces gate1_hospital_profile for scoring, which stays reported
+    status: locked
+    rule: "a hospital has a profile for a condition if its evidence-positive patients reach n*, the smallest grid n at which the split-half reliability of the pairwise hospital angles reaches 0.80 and the hospitals entering the estimate include >= 32 of the 41 development targets"
+    n_grid: [25, 50, 75, 100, 150, 200]
+    method: "for each n, hospitals with >= 2n evidence-positive patients; two disjoint samples of n patients per hospital, 20 draws; from each sample, the angle between every pair of hospitals over the 7 lobes; reliability = Spearman correlation of the two sets of pair angles, mean over draws"
+    min_targets: "the hospitals entering the estimate at that n include >= 32 of the 41 development targets (the gate 2 number)"
+    justification: "nearest 10 chooses donors by pairwise angles, so the reliability is taken on pairwise angles; bar 0.80 (Nunnally and Bernstein 1994); correlation of two distance matrices as in Mantel N, Cancer Res 1967;27:209-20; no outcome is used"
+  gate1_full:  # full-data gate 1, chosen by the user 2026-11-07 ('Yes, use full data'; floor 'Paper's 100'), locked before it was run; used for scoring; gate1_hospital_profile and gate1_pairwise stay reported
+    status: locked
+    rule: "a condition passes if the split-half reliability of the pairwise hospital angles, using all of each hospital's evidence-positive patients and corrected to full size, reaches 0.80, among hospitals with >= 100 evidence-positive stays, and those hospitals include >= 32 of the 41 development targets"
+    floor: "100 evidence-positive stays per hospital, the paper's DAS minimum"
+    method: "each hospital's evidence-positive stays split at random into two halves, 20 draws; from each half, the angle between every pair of hospitals over the 7 lobes; Spearman correlation of the two sets of pair angles, mean over draws; Spearman-Brown corrected to full size, 2r / (1 + r)"
+    gate2: "a development target has a profile if it has >= 100 evidence-positive stays; >= 32 of 41 per task, as gate2_targets"
+    justification: "scoring uses all of a hospital's patients, so the reliability is taken at full size; bar 0.80 (Nunnally and Bernstein 1994); Spearman-Brown (Spearman 1910; Brown 1910); matrix correlation as Mantel 1967; floor from the paper; no outcome is used"
+  gate2_targets:
+    rule: ">= 32 of the 41 development targets have a profile (gate 1)"
+    justification: "precision sample size n = (z x SD / E)^2 (Cochran WG. Sampling Techniques, 3rd ed. Wiley; 1977): z = 1.96, E = 0.010 AUROC, the smallest gain the design treats as worth finding (the approved ablation bar and ceiling stop rule), SD = 0.0286, the median SD across development targets of the gain over random 10 of the ten paper DAS arms on A3 and A6 (task_ceiling_targets_construct.csv); n = 31.4, rounded up to 32; chosen by the user 2026-11-07 ('Precision rule, 32') over a detection rule, because 80% power to detect 0.010 (one-sided 0.05) needs 51 targets and the development half has 41"
+    power_stated: "one-sided 0.05: power to detect a 0.010 gain is 64% at 32 targets and 72% at 41; the smallest gain detectable with 80% power is 0.012 at 32 targets and 0.011 at 41; stated in the paper"
+  B1: "not a gate and not in the main text; one supplementary sensitivity table shows B1 per angle and that it did not predict transfer (CHF 0.38, AF 0.33)"
+  candidates: "nearest 10 by the condition's angle, per task, for every condition passing both gates and not already in the ledger; joined over all passing conditions; counted in the ledger"
+  contrasts:
+    vs_random: "gain over random 10, as every earlier candidate"
+    vs_chf: "paired difference against nearest 10 by the CHF DHM angle, same targets"
+  data: "development half only"
+  multiplicity: "no Holm correction, by the user's choice 2026-11-07 ('No Holm, as before'), as in A_task_screen_ext; a candidate passes if mean gain > 0 and the lower 95% target-bootstrap bound > 0; the Holm-adjusted p is still reported"
+  winner: "only with the user's approval"
+  confirmation: "the user's choice 2026-11-07 ('Re-use, labeled'): a winner is confirmed on the same eICU confirmation half already read in W1 and W3, labeled not independent; MIMIC-IV stays the independent test"
+  medication_rules: "configs/phenotypes_scan.yaml with the proposed exclusions, approved by the user 2026-11-07 ('Exclude it' for ipratropium; 'Approve exclusions' for cancer and renal)"
+  added_version:
+    DHMany: "added by the user 2026-11-07 ('Add it'): one more construct with home and in-stay medication merged into one medication source (D, H, A or M; 7 lobes), for the paper's four and joined, both tasks (10 candidates), paired against DHM as in part 1"
+  limitation: "the diagnosis source differs in meaning between the datasets (eICU: clinician problem list during the stay; MIMIC-IV: post-discharge billing codes); stated as a limitation, not corrected"
+  seed: 20261121
+
+S_site_selection_aligned:
+  status: locked  # proposed 2026-11-07 after the user asked to align the paper's site-selection work with the new work ("I am not married to anything we did before"); model and design approved by the user 2026-11-07 ("Ok"), before computing
+  replaces: "the paper's leave-one-hospital-out transportability (Table 4, Figure 3, Tables S8A-S8D)"
+  targets: "the 82 eICU targets (>= 300 stays, >= 20 deaths) in results/target_split.csv: 41 development, 41 held-out; each target is left out of its own training"
+  tasks:
+    mortality: "in-hospital death (the paper's outcome)"
+    A3_los_gt7d: "ICU stay > 7 days"
+    A6_hospital_los_gt14d: "hospital stay > 14 days"
+  min_events_per_target: 20
+  model: "the paper's M1 covariates + Charlson + the four conditions' D, H, M flags, for every task (user's choice 2026-11-07)"
+  pool: "every other eICU hospital with >= 100 stays and both outcome classes"
+  within_target: "stays split 50/50 by outcome; scored on the evaluation half, as scripts 22 and 23"
+  arms:
+    nearest: "nearest k by the DHM angle for diabetes, hypertension, CHF and AF, and by the joined angle (mean over conditions)"
+    farthest: "farthest k by the DHM angle, per condition and joined"
+    casemix: "nearest k by the script-07 case-mix distance"
+    random: "200 draws of k hospitals at k = 10; 100 draws at k = 5 and 20"
+  size_control: "as script 19 (non-random arms, 3 repeats averaged)"
+  k: {primary: 10, secondary: [5, 20]}
+  estimate: "mean gain in AUROC over the random mean, 95% target bootstrap (2,000 resamples); a set passes if the lower bound > 0; calibration-in-the-large and slope on the evaluation half reported alongside"
+  main_table: "held-out half, k = 10"
+  supplement: "development half; k = 5 and 20; sensitivity without hospitals that have no medication records (targets and pool, k = 10)"
+  mimic_iv: "unchanged: percentile among 500 random 10-hospital sets, pooled all, hospital type (scripts 24-26)"
+  multiplicity: "no Holm correction, as A_condition_scan (user's choice 2026-11-07)"
+  unchanged_tests: "Mantel, PERMANOVA/PERMDISP and the likelihood-ratio tests of DAS in the mortality models stay as in the paper"
+  seed: 20261122
+
+S_membership_comparator:
+  status: locked  # proposed 2026-11-08 to replace the heuristic case-mix comparator; the user asked to draft it and run it ("Let's just draft it and do it to see what it gives as a result"), before computing
+  replaces: "the script-07 case-mix distance as the patient-similarity comparator (case-mix arms stay in the outputs)"
+  measure: "outcome-free version of the Debray et al. 2015 membership model (J Clin Epidemiol 68:279-289): logistic regression (L2, C = 1, standardized inputs) separating a pool hospital's stays from the target's stays on the M1 patient covariates only (APACHE IV score, age, sex, race/ethnicity, unit stay type, admission source; no Charlson, no documentation flags, no outcome); relatedness = 5-fold stratified cross-validated c-statistic, lower = more related"
+  eicu:
+    design: "S_site_selection_aligned replayed exactly (same seed, targets, S/E split, random draws, size n per target); k = 10, all hospitals, both halves, three outcomes"
+    target_side: "the target's selection half S for that outcome (never the evaluation half E)"
+    pool_side: "every stay of the pool hospital"
+    arms:
+      memb_near: "10 pool hospitals with the lowest membership c-statistic"
+      memb_far: "10 with the highest"
+      dasmemb_near: "10 with the lowest mean of two within-pool ranks: combined DHM angle and membership c-statistic (hospitals with both)"
+    size: "each new set subsampled to the S_site_selection_aligned n of that target (3 repeats averaged); a smaller set uses all its stays"
+    estimate: "gain over the stored random mean, 95% target bootstrap (2,000); paired differences: near_<angle> minus memb_near, dasmemb_near minus memb_near, far_joined minus memb_far"
+  mimic_iv:
+    design: "one pool (hospitals with a combined DHM angle, eligible as W_mimic_aligned), three outcomes; target side = MIMIC-IV reference subset (25%), scoring on the evaluation subset"
+    arms: "memb_near, memb_far, dasmemb_near, combined-angle nearest and farthest, 500 random sets of 10; every set subsampled to one n as W_mimic_aligned"
+    estimate: "gain over the random mean, percentile among random sets, patient-bootstrap CI for the selected sets"
+  multiplicity: "none"
+  seed: 20261123
+
+S_max_angle:
+  status: locked  # proposed 2026-11-08 after the combined (mean) angle results were seen; the user approved the proposal as described in chat ("Ok run it and tell me"), before computing
+  question: "does combining the four conditions by the largest angle (a hospital is near only if near on every condition) select better training sets than the mean angle?"
+  measure: "max over the conditions' DHM angles available for both hospitals (same availability rule as the joined/combined mean)"
+  eicu:
+    design: "S_site_selection_aligned replayed exactly as S_membership_comparator (same seed, targets, S/E split, random draws, size n per target); k = 10, all hospitals, both halves, three outcomes"
+    arms: {near_max: "10 pool hospitals with the smallest max angle", far_max: "10 with the largest"}
+    size: "subsampled to the stored n of that target, 3 repeats averaged, own generator"
+    estimate: "gain over the stored random mean and paired differences near_max minus near_joined, far_max minus far_joined; 95% target bootstrap (2,000)"
+  mimic_iv:
+    design: "W_mimic_aligned script 24 with the max angle to MIMIC-IV (reference subset 2011-2019), three outcomes: nearest and farthest 10 against 500 random sets of 10, one n, patient bootstrap; pooled and type-matched comparisons (scripts 25-26) not run"
+  multiplicity: "none"
+  seed: 20261124
+
+S_site_selection_iecv:
+  status: locked  # written 2026-11-08 from the design agreed in chat ("update the design and update the file as we talk"); the user approved this text 2026-11-08 ("Approve as it stands"), before computing; updated 2026-11-09 on the user's instruction: ICU stay > 5 days added as a fourth outcome through every step, and the split wording corrected to the stays tertile the code uses
+  replaces: "S_site_selection_aligned, S_membership_comparator and S_max_angle as the paper's site-selection analysis (their outputs are kept)"
+  design: "internal-external cross-validation (Steyerberg; Debray): each hospital takes a turn as the hidden target"
+  flowchart: "manuscript/revision/site_selection_design_flowchart_2026-11-08.png (reasons table: site_selection_design_table_2026-11-08.png)"
+  terms:
+    source_hospitals: "hospitals that can supply training data"
+    candidate_pool: "the source hospitals available for one target"
+    training_set: "the hospitals picked from the candidate pool; the only thing called training"
+    target_hospital: "the hidden hospital being predicted"
+    das_measure: "DAS for one condition (diabetes, hypertension, CHF, AF) from its diagnosis, history and medication (DHM) records, or the mean of the four"
+  eligible: "eICU hospitals with >= 100 stays (141 of 187); each is both a source and a target; the 46 smaller hospitals are not used"
+  tasks:
+    mortality: "in-hospital death"
+    A3_los_gt7d: "ICU stay > 7 days"
+    A6_hospital_los_gt14d: "hospital stay > 14 days"
+    A7_los_gt5d: "ICU stay > 5 days"
+  no_events_rule: "a target with no events (or no non-events) for an outcome is skipped as a target for that outcome; it stays a source (one hospital, hospital stay > 14 days)"
+  split: "141 hospitals shuffled within region x tertile of stays and dealt alternately to the development set and the held-out test set; leftovers of odd strata alternate from a random start, so which half gets 71 is decided by chance (approved with this entry 2026-11-08); one split for all outcomes, made only after this entry is locked; fixed seed"
+  model: "M1 covariates + Charlson + the four conditions' D, H, M flags, as S_site_selection_aligned"
+  step1_development:
+    loop: "each of the 70 development hospitals in turn is the target"
+    candidate_pool: "the other 69 development hospitals (held-out test hospitals excluded)"
+    similarity: "records only, never outcomes: 5 DAS measures and the outcome-free membership model (S_membership_comparator measure, target side = all the target's stays)"
+    arms: "for each of the 6 rankings, the 10 nearest and the 10 farthest; 200 random sets of 10; k = 10 only, the k = 5 and 20 versions are not run (user's choice 2026-11-08)"
+    size: "every set trimmed to one n per target: the smaller of the smallest selected set and the 5th percentile of random-set sizes; selected sets trimmed 10 times and averaged, random sets once"
+    scoring: "all the target's stays: AUROC, calibration-in-the-large and slope"
+    per_target: "gain = arm AUROC minus mean AUROC of the 200 random sets; standard error from 1,000 patient bootstrap resamples of the target (random mean recomputed in each)"
+    pooling: "random-effects meta-analysis per arm and outcome (REML, Hartung-Knapp CI): pooled gain, 95% CI, 95% prediction interval, I2; forest plot"
+  step2_screening:
+    candidates: "20 = 5 DAS measures x 4 outcomes, nearest arm"
+    rule: "the candidate with the largest pooled gain is locked if its 95% CI lower bound > 0 (user's choice 2026-11-08: 'As drawn'); otherwise stop and report development only, no held-out claim"
+    comparator: "membership nearest and farthest shown beside each candidate; not part of the rule"
+  step3_held_out_test:
+    loop: "each of the 71 held-out hospitals in turn is the target, same steps as step 1"
+    candidate_pool: "the other 70 held-out hospitals (mirror of development; the halves never share data)"
+    main_result: "pooled gain of the locked DAS measure and outcome, nearest arm; all other arms and outcomes reported as secondary"
+    sensitivity:
+      few_events: "the same pooling restricted to targets with >= 20 events of that outcome; reported alongside, not a gate"
+      no_medication: "steps 1-3 rerun without the hospitals that have no medication records (no stay with any M flag; 24 of the 141), removed as targets and as candidates; reported alongside, not a gate (user's choice 2026-11-08)"
+  step4_external_test:
+    target: "MIMIC-IV as one target; all ICU stays used for DAS and membership (records only) and for scoring; no reference subset"
+    candidate_pool: "all 141 eligible eICU hospitals"
+    arms: "locked DAS measure nearest and farthest 10, membership nearest and farthest 10, 500 random sets of 10; same trimming rule"
+    estimate: "gain over the random mean, percentile among the 500 random sets, 95% CI from 2,000 patient bootstrap resamples; calibration"
+  multiplicity: "one locked main comparison; the rest secondary, unadjusted"
+  checks_done:
+    mimic_history_coverage: "checked 2026-11-08: a discharge summary exists for 97.7% to 99.5% and a past-history section for 96.7% to 99.0% of stays in every anchor-year group (2008-2010 to 2017-2019, 42,124 stays), so all years are used"
+  seed: 20261125
+
+
+S_das_variation:
+  status: locked  # the user approved this text 2026-11-09 ("Approve and run"), before computing
+  role: "Part A of the paper: documentation variation across the same 141 hospitals as S_site_selection_iecv (Part B); flowchart manuscript/revision/das_paper_design_flowchart_2026-11-09.png"
+  hospitals: "the 141 eICU hospitals with >= 100 stays (results/iecv_split.csv), all together, no split; a condition's DAS needs >= 100 records with evidence of that condition (das.min_records_per_hospital), as in Part B"
+  das:
+    pairs: "DAS (angle in degrees between DHM documentation vectors) for every pair of hospitals, per condition (diabetes, hypertension, CHF, AF); mean DAS of a pair = mean over the conditions both hospitals have"
+    reference: "none"
+    positions: "principal coordinates (classical MDS) of each DAS distance matrix; the first three axes are each hospital's position"
+    main_measure: "mean DAS, the measure locked by the Part B screening, so the paper has one headline DAS measure; the four condition DAS measures are secondary and reported in full in A1 and A2"
+    no_split: "Part A is descriptive and picks no winner, so it uses all 141 hospitals together, without the Part B split or screening"
+  A1_variation:
+    spread: "distribution of between-hospital DAS per condition"
+    noise_floor: "each hospital's stays split in half at random (200 splits); within-hospital split-half DAS is the noise floor; report the share of hospital pairs whose DAS exceeds the 95th percentile of the two hospitals' split-half DAS, and the between-hospital DAS minus the mean noise floor"
+    consistency: "secondary (condition measures): Mantel test (Spearman, 9,999 permutations) between the DAS matrices of each pair of conditions, on the hospitals both have"
+  A2_what_goes_with_das:
+    variables: "region, bed-size category, teaching status (eICU hospital table); case mix as hospital means: APACHE IV score, share admitted from the emergency department, share transferred from another hospital"
+    test: "PERMANOVA (adonis, 9,999 permutations) on the mean-DAS matrix (main) and each condition DAS matrix (secondary): each variable alone, then all together; PERMDISP for each categorical variable"
+    missing: "hospitals with an unknown category are left out of that variable's test; counts reported"
+  A3_outcomes:
+    outcomes: "death, ICU stay > 5 days, ICU stay > 7 days, hospital stay > 14 days (as in Part B)"
+    base_model: "logistic mixed model: patient covariates of M1 (APACHE IV score, age, gender, ethnicity, unit stay type, unit admission source) + hospital random intercept"
+    added: "(a) DAS position (first three principal coordinates of the mean-DAS matrix); (b) hospital characteristics and case mix as in A2; (c) both"
+    measure: "mean DAS only; all four outcomes reported, since comparing outcomes is the aim"
+    estimate: "between-hospital variance of the intercept (latent scale) per model; share explained = 1 - variance(model) / variance(base); likelihood-ratio tests; compared across the four outcomes"
+    similarity: "Mantel test between the mean-DAS matrix and the matrix of absolute differences in hospital intercepts from the base model, per outcome"
+  mimic_position: "MIMIC-IV placed on the mean-DAS map of the 141 hospitals (its mean DAS to each eICU hospital from all MIMIC-IV stays, as in Part B step 4; added to the principal coordinates as an out-of-sample point); description only, no models"
+  sensitivity:
+    no_medication: "A1-A3 without the 24 hospitals with no medication records, as in Part B"
+    survivors: "A3 for the three stay outcomes among stays that survive to hospital discharge"
+  multiplicity: "descriptive analyses; p-values reported unadjusted with effect sizes"
+  seed: 20261125

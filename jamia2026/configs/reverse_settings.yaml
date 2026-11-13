@@ -1,0 +1,22 @@
+# Reverse direction: the paper's model (M1) trained on MIMIC-IV, scored at each eICU hospital.
+# Locked 2026-11-06 before any MIMIC-IV-trained model was scored on eICU stays. eICU outcomes
+# have been used before (eICU paper, scripts 04, 10, 11, 12), never against a MIMIC-IV model.
+status: locked
+model: "M1 (scripts/m1_model.py design, C = 1e6), trained on all 42,124 MIMIC-IV cohort stays"
+comparator: "M1 trained on all other eICU hospitals (leave one hospital out), scored on the same hospital"
+targets:
+  primary: "eICU hospitals with >= 300 M1 stays and >= 20 deaths"
+  sensitivity: "at least 100 stays and 10 deaths"
+loss:
+  primary: "AUROC(eICU leave-out model) - AUROC(MIMIC-IV model); positive means the MIMIC-IV model is worse"
+  secondary: [Brier(MIMIC-IV) - Brier(leave-out), calibration-in-the-large of the MIMIC-IV model (absolute)]
+distance:
+  primary: "DAS to the MIMIC-IV reference profile, construct DHM (published, 7 lobes), ref_2011_2019"
+  secondary: [DHAM (15 lobes), DAM]
+  comparators: "case-mix distance (results/casemix_distance.csv), Northeast region"
+analysis:
+  correlation: "Spearman(distance, loss) per condition, 95% CI from 2,000 hospital bootstrap resamples"
+  adjusted: "OLS loss ~ z(DAS) + z(case-mix distance) + log(stays) + Northeast + teaching, HC3 SE; DAS coefficient per SD"
+  expected_sign: positive (farther documentation, larger loss)
+  multiplicity: "4 conditions under the primary construct; Holm if p-values are shown"
+seed: 20261106
